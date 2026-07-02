@@ -41,6 +41,16 @@ body {
   width: 100%;
 }
 
+.page-title-row {
+  width: 100%;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.page-title-row .ant-typography {
+  margin-bottom: 0;
+}
+
 .login-page {
   min-height: 100vh;
   display: grid;

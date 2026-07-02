@@ -1,5 +1,5 @@
 export type UserStatus = "ACTIVE" | "BANNED" | "DELETED";
-export type UserRole = "USER" | "ADMIN";
+export type UserRole = "USER" | "MEMBER" | "ADMIN";
 export type ReportStatus = "PENDING" | "APPROVED" | "REJECTED";
 export type ReviewDecision = "APPROVE" | "REJECT";
 
@@ -17,14 +17,16 @@ export interface PageResult<T> {
   total: number;
   page: number;
   limit: number;
+  hasMore?: boolean;
 }
 
 export interface AdminUser {
   id: string;
   accountId: string;
   nickname?: string | null;
-  role: UserRole;
-  status: UserStatus;
+  avatarUrl?: string | null;
+  role?: UserRole;
+  status?: UserStatus;
   createdAt?: string;
   lastOnline?: string | null;
 }

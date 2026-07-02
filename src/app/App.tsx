@@ -5,7 +5,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { getMe } from "../api/auth";
 import { AppLayout } from "../components/AppLayout";
 import { RequireAdmin } from "../auth/RequireAdmin";
-import { getSession } from "../auth/session";
+import { clearSession, getSession } from "../auth/session";
 import { DashboardPage } from "../pages/DashboardPage";
 import { LoginPage } from "../pages/LoginPage";
 import { ReportsPage } from "../pages/ReportsPage";
@@ -32,6 +32,11 @@ function AdminRoutes() {
 
   if (session && me.isLoading) {
     return <Spin fullscreen />;
+  }
+
+  if (session && me.isError) {
+    clearSession();
+    return <Navigate to="/login" replace />;
   }
 
   return (

@@ -4,6 +4,7 @@ import { Alert, Button, Card, Form, Input, Typography } from "antd";
 import { useNavigate } from "react-router-dom";
 import { getMe, login } from "../api/auth";
 import { clearSession, setSession } from "../auth/session";
+import { getErrorMessage } from "../utils/errors";
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -30,14 +31,14 @@ export function LoginPage() {
           <Alert
             type="error"
             showIcon
-            message={mutation.error instanceof Error ? mutation.error.message : "登录失败"}
+            message={getErrorMessage(mutation.error, "登录失败")}
           />
         ) : null}
         <Form layout="vertical" onFinish={(values) => mutation.mutate(values)}>
-          <Form.Item name="email" label="邮箱" rules={[{ required: true }]}>
+          <Form.Item name="email" label="邮箱" rules={[{ required: true, message: "请输入邮箱" }]}>
             <Input prefix={<UserOutlined />} autoComplete="username" />
           </Form.Item>
-          <Form.Item name="password" label="password" rules={[{ required: true }]}>
+          <Form.Item name="password" label="密码" rules={[{ required: true, message: "请输入密码" }]}>
             <Input.Password prefix={<LockOutlined />} autoComplete="current-password" />
           </Form.Item>
           <Button type="primary" htmlType="submit" loading={mutation.isPending} block>

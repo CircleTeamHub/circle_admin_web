@@ -34,14 +34,36 @@ function isEnvelope<T>(payload: unknown): payload is ApiEnvelope<T> {
 
 async function parseResponse<T>(response: Response): Promise<T> {
   const text = await response.text();
-  const payload = text ? JSON.parse(text) : null;
+  let payload: unknown = null;
+  if (text) {
+    try {
+      payload = JSON.parse(text);
+    } catch {
+      payload = text;
+    }
+  }
 
   if (!response.ok) {
     const message =
       payload && typeof payload === "object" && "message" in payload
         ? String((payload as { message?: string }).message)
+        : typeof payload === "string" && payload.trim()
+          ? payload
         : response.statusText;
     throw new ApiError(message, response.status, payload);
+  }
+
+  if (
+    payload &&
+    typeof payload === "object" &&
+    "code" in payload &&
+    Number((payload as ApiEnvelope<T>).code) !== 0
+  ) {
+    throw new ApiError(
+      String((payload as ApiEnvelope<T>).message || "Request failed"),
+      response.status,
+      payload,
+    );
   }
 
   return isEnvelope<T>(payload) ? (payload.data as T) : (payload as T);

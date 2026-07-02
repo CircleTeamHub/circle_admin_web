@@ -3,7 +3,10 @@ import { Button, Form, Input, Modal, Select, Space, Table, Tag, Typography, mess
 import type { ColumnsType } from "antd/es/table";
 import { useState } from "react";
 import { listUsers, updateUserStatus } from "../api/users";
+import { PageError } from "../components/PageError";
 import type { AdminUser, AuthUser, UserStatus } from "../types";
+import { getErrorMessage } from "../utils/errors";
+import { formatDateTime } from "../utils/format";
 
 const PAGE_SIZE = 20;
 
@@ -57,6 +60,9 @@ export function UsersPage({ currentUser }: { currentUser: AuthUser }) {
       form.resetFields();
       queryClient.invalidateQueries({ queryKey: ["users"] });
     },
+    onError: (error) => {
+      message.error(getErrorMessage(error, "用户状态更新失败"));
+    },
   });
 
   const currentUserId = currentUser.userId || currentUser.id;
@@ -73,8 +79,8 @@ export function UsersPage({ currentUser }: { currentUser: AuthUser }) {
         </Tag>
       ),
     },
-    { title: "createdAt", dataIndex: "createdAt", render: (value) => value || "-" },
-    { title: "lastOnline", dataIndex: "lastOnline", render: (value) => value || "-" },
+    { title: "createdAt", dataIndex: "createdAt", render: (value) => formatDateTime(value) },
+    { title: "lastOnline", dataIndex: "lastOnline", render: (value) => formatDateTime(value) },
     {
       title: "操作",
       render: (_, record) => (
@@ -126,11 +132,15 @@ export function UsersPage({ currentUser }: { currentUser: AuthUser }) {
           options={["ACTIVE", "BANNED", "DELETED"].map((value) => ({ value, label: value }))}
         />
       </Space>
+      {users.isError ? (
+        <PageError error={users.error} onRetry={() => users.refetch()} message="用户列表加载失败" />
+      ) : null}
       <Table
         rowKey="id"
         columns={columns}
         dataSource={users.data?.items || []}
         loading={users.isLoading}
+        locale={{ emptyText: users.isError ? "加载失败" : "暂无用户" }}
         pagination={{
           current: page,
           pageSize: PAGE_SIZE,

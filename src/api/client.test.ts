@@ -84,4 +84,20 @@ describe('apiClient', () => {
     await expect(apiClient('/secure')).rejects.toBeInstanceOf(ApiError);
     expect(getSession()).toBeNull();
   });
+
+  it('wraps non-json error responses in ApiError', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response('Internal Server Error', {
+        status: 500,
+        statusText: 'Internal Server Error',
+        headers: { 'Content-Type': 'text/plain' },
+      }),
+    );
+
+    await expect(apiClient('/broken')).rejects.toMatchObject({
+      name: 'ApiError',
+      status: 500,
+      message: 'Internal Server Error',
+    });
+  });
 });

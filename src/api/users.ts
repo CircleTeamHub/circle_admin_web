@@ -8,8 +8,28 @@ export interface UserListParams {
   status?: UserStatus;
 }
 
-export function listUsers(query: string): Promise<PageResult<AdminUser>> {
-  return apiClient<PageResult<AdminUser>>(`/user?${query}`);
+type BackendUserListResponse = {
+  items?: AdminUser[];
+  data?: AdminUser[];
+  total?: number;
+  page?: number;
+  limit?: number;
+};
+
+export function normalizeUserListResponse(
+  response: BackendUserListResponse,
+): PageResult<AdminUser> {
+  return {
+    items: response.items ?? response.data ?? [],
+    total: response.total ?? 0,
+    page: response.page ?? 1,
+    limit: response.limit ?? 20,
+  };
+}
+
+export async function listUsers(query: string): Promise<PageResult<AdminUser>> {
+  const response = await apiClient<BackendUserListResponse>(`/user?${query}`);
+  return normalizeUserListResponse(response);
 }
 
 export function updateUserStatus(

@@ -3,8 +3,11 @@ import { Button, Descriptions, Drawer, Form, Input, Modal, Space, Table, Tabs, T
 import type { ColumnsType } from "antd/es/table";
 import { useState } from "react";
 import { listFriendReports, reviewFriendReport } from "../api/reports";
+import { PageError } from "../components/PageError";
 import { UserSummary } from "../components/UserSummary";
 import type { FriendReport, ReportStatus, ReviewDecision } from "../types";
+import { getErrorMessage } from "../utils/errors";
+import { formatDateTime } from "../utils/format";
 
 const PAGE_SIZE = 20;
 
@@ -31,16 +34,19 @@ export function ReportsPage() {
       form.resetFields();
       queryClient.invalidateQueries({ queryKey: ["friendReports"] });
     },
+    onError: (error) => {
+      message.error(getErrorMessage(error, "审核操作失败"));
+    },
   });
 
   const columns: ColumnsType<FriendReport> = [
-    { title: "举报时间", dataIndex: "createdAt" },
+    { title: "举报时间", dataIndex: "createdAt", render: (value) => formatDateTime(value) },
     { title: "分类", dataIndex: "category", render: (value) => value || "-" },
     { title: "举报人", dataIndex: "reporter", render: (user) => <UserSummary user={user} /> },
     { title: "被举报人", dataIndex: "targetUser", render: (user) => <UserSummary user={user} /> },
     { title: "状态", dataIndex: "status" },
     { title: "审核人", dataIndex: "reviewer", render: (user) => <UserSummary user={user} /> },
-    { title: "审核时间", dataIndex: "reviewedAt", render: (value) => value || "-" },
+    { title: "审核时间", dataIndex: "reviewedAt", render: (value) => formatDateTime(value) },
     {
       title: "操作",
       render: (_, record) => (
@@ -74,11 +80,15 @@ export function ReportsPage() {
         }}
         items={["PENDING", "APPROVED", "REJECTED"].map((key) => ({ key, label: key }))}
       />
+      {reports.isError ? (
+        <PageError error={reports.error} onRetry={() => reports.refetch()} message="举报列表加载失败" />
+      ) : null}
       <Table
         rowKey="id"
         columns={columns}
         dataSource={reports.data?.items || []}
         loading={reports.isLoading}
+        locale={{ emptyText: reports.isError ? "加载失败" : "暂无举报" }}
         pagination={{
           current: page,
           pageSize: PAGE_SIZE,
@@ -98,14 +108,28 @@ export function ReportsPage() {
                 <UserSummary user={selected.targetUser} />
               </Descriptions.Item>
               <Descriptions.Item label="审核备注">{selected.reviewNote || "-"}</Descriptions.Item>
+              <Descriptions.Item label="举报时间">{formatDateTime(selected.createdAt)}</Descriptions.Item>
+              <Descriptions.Item label="审核时间">{formatDateTime(selected.reviewedAt)}</Descriptions.Item>
             </Descriptions>
             <div>
               <Typography.Text strong>证据</Typography.Text>
-              <ul>
-                {(selected.evidence || []).map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
-              </ul>
+              {(selected.evidence || []).length ? (
+                <ul>
+                  {(selected.evidence || []).map((item) => (
+                    <li key={item}>
+                      {/^https?:\/\//i.test(item) ? (
+                        <a href={item} target="_blank" rel="noreferrer">
+                          {item}
+                        </a>
+                      ) : (
+                        item
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <Typography.Paragraph type="secondary">暂无证据</Typography.Paragraph>
+              )}
             </div>
           </Space>
         ) : null}
