@@ -76,7 +76,7 @@ async function refreshAccessToken(): Promise<string> {
   }
 
   const data = await apiClient<{ accessToken: string; refreshToken: string }>(
-    "/auth/refresh",
+    "/auth/admin/refresh",
     {
       method: "POST",
       auth: false,

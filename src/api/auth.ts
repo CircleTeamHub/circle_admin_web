@@ -12,7 +12,7 @@ export interface AuthTokens {
 }
 
 export function login(payload: LoginPayload): Promise<AuthTokens> {
-  return apiClient<AuthTokens>("/auth/login", {
+  return apiClient<AuthTokens>("/auth/admin/login", {
     method: "POST",
     auth: false,
     body: JSON.stringify(payload),

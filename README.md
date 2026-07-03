@@ -4,7 +4,8 @@ Circle 管理后台，用于内部管理员处理举报、管理用户状态、�
 
 ## 功能
 
-- 管理员登录：调用后端 `/api/v1/auth/login`，登录后校验 `/auth/me` 返回的 `role=ADMIN` 且 `status=ACTIVE`。
+- 管理员登录：调用后端 `/api/v1/auth/admin/login`，登录后校验 `/auth/me` 返回的 `role=ADMIN` 且 `status=ACTIVE`。
+- 管理员会话刷新：调用 `/api/v1/auth/admin/refresh`，要求后端 refresh session audience 为 `ADMIN`。
 - Dashboard：展示待处理举报数、用户总数、封禁用户数、Outbox failed 摘要和运维链接。
 - 举报审核：按 `PENDING / APPROVED / REJECTED` 筛选好友举报，查看详情，通过或驳回举报。
 - 用户管理：按 accountId 搜索、按 status 筛选，支持封禁、解封、删除用户并填写操作说明。
@@ -71,6 +72,5 @@ Nginx 配置：
 
 ## 当前限制
 
-- 当前登录仍复用普通 `/auth/login`，后续应增加独立 `/auth/admin/login` 和 admin token audience。
-- 当前只接入好友举报；群举报、内容治理、钱包调整后续补后端接口后再接入。
+- 当前只接入好友举报；群举报、内容治理、钱包调整需要后端补 admin API 后再接入。
 - 管理操作第一版依赖后端 business log；后续应落 AdminAuditLog 审计表。

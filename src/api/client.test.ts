@@ -56,6 +56,13 @@ describe('apiClient', () => {
     });
 
     expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/v1/auth/admin/refresh',
+      expect.objectContaining({
+        body: JSON.stringify({ refreshToken: 'refresh-token' }),
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
       3,
       '/api/v1/secure',
       expect.objectContaining({
