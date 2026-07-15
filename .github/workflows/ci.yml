@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: admin-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test, build, and release contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test application
+        run: npm test
+
+      - name: Verify release contracts
+        run: node --test scripts/release-contract.mjs
+
+      - name: Build production assets
+        run: npm run build
+
+      - name: Validate release image and nginx configuration
+        run: |
+          docker build --file Dockerfile.release --tag circle-admin-web:ci .
+          docker run --rm circle-admin-web:ci nginx -t
