@@ -1,0 +1,283 @@
+# Tag-triggered release for the admin web UI: test + build dist on the runner,
+# assemble a linux/arm64 nginx image (Dockerfile.release), push it to GHCR as
+# an immutable version tag, then SSH to the server and roll the compose stack's
+# admin_web service to it via circle_be's deploy/admin-web-deploy.sh.
+#
+# Usage:    git tag v0.1.0 && git push origin v0.1.0
+# Rollback: Actions -> Release -> Run workflow with an older tag.
+#
+# Ordering note: the nginx.conf in this image proxies /api/ to the blue-green
+# alias `circle-be-app`, which exists once circle_be has done at least one
+# release from its own pipeline. Release circle_be first, then this.
+#
+# One-time setup (repo/org Settings -> Secrets and variables -> Actions —
+# same values as the circle_be repo, org-level secrets avoid duplication):
+#   secrets:  DEPLOY_SSH_KEY, DEPLOY_KNOWN_HOSTS (optional), DISCORD_WEBHOOK_URL
+#   variables: DEPLOY_HOST (required), DEPLOY_USER (default ubuntu),
+#              DEPLOY_PATH (default circle_be — the stack lives in the
+#              circle_be checkout on the server), ADMIN_SMOKE_URL (optional,
+#              e.g. https://<ADMIN_DOMAIN>/ for an outside-in check),
+#              VITE_API_BASE_URL etc. only if the defaults must change
+#              (default /api/v1 works: nginx proxies same-origin).
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v[0-9]*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing v* tag to (re)deploy — rollback = dispatch an older tag"
+        required: true
+        type: string
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "22"
+
+jobs:
+  # Test, build the static dist natively on the runner, then assemble and push
+  # the arm64 nginx image. dist is architecture-independent, so no QEMU npm.
+  build:
+    name: "Test, build & push image"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      image: ${{ steps.meta.outputs.image }}
+    steps:
+      - name: Determine release tag
+        id: tag
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_TAG: ${{ inputs.tag }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then TAG="$INPUT_TAG"; else TAG="$REF_NAME"; fi
+          case "$TAG" in
+            v[0-9]*) ;;
+            *)
+              echo "Refusing to release non-version tag: $TAG" >&2
+              exit 1
+              ;;
+          esac
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.tag.outputs.tag }}
+          fetch-depth: 0
+
+      - name: Verify tag commit is on main
+        run: |
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "Tag ${{ steps.tag.outputs.tag }} is not an ancestor of origin/main." >&2
+            exit 1
+          fi
+
+      - name: Compute image reference
+        id: meta
+        run: echo "image=ghcr.io/${GITHUB_REPOSITORY,,}:${{ steps.tag.outputs.tag }}" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Test
+        run: npm test
+
+      # `npm run build` = tsc --noEmit && vite build — typecheck included.
+      # VITE_* values are baked into dist here; defaults match production
+      # (relative /api/v1 is proxied same-origin by nginx.conf).
+      - name: Build dist
+        env:
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || '/api/v1' }}
+          VITE_APP_ENV: ${{ vars.VITE_APP_ENV || 'production' }}
+          VITE_GRAFANA_URL: ${{ vars.VITE_GRAFANA_URL }}
+          VITE_SENTRY_URL: ${{ vars.VITE_SENTRY_URL }}
+          VITE_UPTIME_KUMA_URL: ${{ vars.VITE_UPTIME_KUMA_URL }}
+          VITE_ALERTMANAGER_URL: ${{ vars.VITE_ALERTMANAGER_URL }}
+        run: npm run build
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.release
+          platforms: linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.image }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          provenance: false
+
+  deploy:
+    name: "Deploy to server"
+    runs-on: ubuntu-latest
+    needs: [build]
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: read # the server pulls from GHCR with this job's ephemeral token
+    environment: production
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+        run: |
+          set -euo pipefail
+          if [ -z "$DEPLOY_SSH_KEY" ] || [ -z "$DEPLOY_HOST" ]; then
+            echo "Missing DEPLOY_SSH_KEY secret and/or DEPLOY_HOST variable." >&2
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          if [ -n "$DEPLOY_KNOWN_HOSTS" ]; then
+            printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          else
+            echo "warning: DEPLOY_KNOWN_HOSTS not set; falling back to ssh-keyscan."
+            ssh-keyscan -H "$DEPLOY_HOST" > ~/.ssh/known_hosts
+          fi
+          chmod 600 ~/.ssh/known_hosts
+
+      # The compose stack (and deploy/admin-web-deploy.sh) live in the circle_be
+      # checkout on the server; this repo's release only supplies the image ref.
+      - name: Roll out admin_web on server
+        env:
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+          ADMIN_WEB_IMAGE: ${{ needs.build.outputs.image }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER || 'ubuntu' }}
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH || 'circle_be' }}
+        run: |
+          set -euo pipefail
+          {
+            printf 'export RELEASE_TAG=%q ADMIN_WEB_IMAGE=%q GHCR_USER=%q GHCR_TOKEN=%q\n' \
+              "$RELEASE_TAG" "$ADMIN_WEB_IMAGE" "$GHCR_USER" "$GHCR_TOKEN"
+            printf 'exec bash %q/deploy/admin-web-deploy.sh\n' "$DEPLOY_PATH"
+          } | ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" bash -s
+
+      - name: External smoke check
+        env:
+          ADMIN_SMOKE_URL: ${{ vars.ADMIN_SMOKE_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "$ADMIN_SMOKE_URL" ]; then
+            echo "vars.ADMIN_SMOKE_URL not set; skipping external smoke check."
+            exit 0
+          fi
+          for attempt in 1 2 3 4 5 6; do
+            code="$(curl -m 10 -s -o /dev/null -w '%{http_code}' "$ADMIN_SMOKE_URL" || echo 000)"
+            case "$code" in
+              2*|3*|401|403)
+                echo "external smoke ok (HTTP $code)"
+                exit 0
+                ;;
+            esac
+            sleep 5
+          done
+          echo "external smoke failed (last HTTP $code)" >&2
+          exit 1
+
+  publish_release:
+    name: "Publish GitHub Release"
+    runs-on: ubuntu-latest
+    needs: [build, deploy]
+    if: ${{ github.event_name == 'push' }}
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.build.outputs.tag }}
+          name: "Release ${{ needs.build.outputs.tag }}"
+          generate_release_notes: true
+
+  notify:
+    name: Notify Discord
+    runs-on: ubuntu-latest
+    needs: [build, deploy, publish_release]
+    if: always()
+    timeout-minutes: 5
+    env:
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+    steps:
+      - name: Send Discord Notification
+        if: ${{ env.DISCORD_WEBHOOK_URL != '' }}
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag || github.ref_name }}
+        run: |
+          node <<'NODE' > payload.json
+          const needs = JSON.parse(process.env.NEEDS_JSON);
+          const jobLines = Object.entries(needs).map(
+            ([name, job]) => `${name}: ${job.result}`,
+          );
+          const failed = Object.values(needs).some((job) =>
+            ['failure', 'cancelled'].includes(job.result),
+          );
+
+          const repo = process.env.GITHUB_REPOSITORY;
+          const runUrl = `${process.env.GITHUB_SERVER_URL}/${repo}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+          const releaseUrl = `${process.env.GITHUB_SERVER_URL}/${repo}/releases/tag/${process.env.RELEASE_TAG}`;
+
+          const payload = {
+            username: 'GitHub Actions',
+            content: [
+              failed
+                ? `:rotating_light: **Admin web release ${process.env.RELEASE_TAG} failed**`
+                : `:rocket: **Admin web release ${process.env.RELEASE_TAG} deployed**`,
+              `**Repository:** ${repo}`,
+              `**Jobs:** ${jobLines.join(', ')}`,
+              failed ? `**Run:** ${runUrl}` : `**Release:** ${releaseUrl}`,
+            ].join('\n'),
+          };
+
+          process.stdout.write(JSON.stringify(payload));
+          NODE
+
+          curl --fail-with-body \
+            -H 'Content-Type: application/json' \
+            -d @payload.json \
+            "$DISCORD_WEBHOOK_URL"

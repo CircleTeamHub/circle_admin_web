@@ -1,0 +1,11 @@
+# CI 发版专用(.github/workflows/release.yml):dist 已在 GitHub runner 上
+# 原生构建好(静态产物与 CPU 架构无关),镜像只做 nginx 装配 —— 避免在 QEMU
+# 模拟的 arm64 里跑 npm ci + vite build(慢一个数量级)。
+# 服务器上的手动构建路径(DEPLOY.md)仍用 ./Dockerfile,行为不变。
+FROM nginx:alpine
+
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY dist /usr/share/nginx/html
+
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
