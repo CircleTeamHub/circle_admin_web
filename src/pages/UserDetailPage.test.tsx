@@ -148,4 +148,16 @@ describe("UserDetailPage", () => {
     expect(await screen.findByText("用户详情加载失败")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "返回用户列表" })).toBeInTheDocument();
   });
+
+  it("falls back to the account id when the nickname is blank", async () => {
+    mockedDetail.mockResolvedValue({
+      ...detail,
+      profile: { ...detail.profile, nickname: "" },
+    });
+
+    renderPage();
+
+    expect(await screen.findByRole("heading", { name: "jim-1001" })).toBeInTheDocument();
+    expect(screen.getByText("J")).toBeInTheDocument();
+  });
 });

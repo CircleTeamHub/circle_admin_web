@@ -78,6 +78,7 @@ export function UserDetailPage({ currentUser }: { currentUser: AuthUser }) {
   }
 
   const data = detail.data;
+  const displayName = data.profile.nickname || data.profile.accountId;
   const auditColumns: ColumnsType<AdminAuditLog> = [
     { title: "操作", dataIndex: "action" },
     { title: "管理员", dataIndex: "actorAccountId" },
@@ -95,10 +96,10 @@ export function UserDetailPage({ currentUser }: { currentUser: AuthUser }) {
       <Space className="page-title-row" wrap>
         <Space>
           <Avatar size={56} src={data.profile.avatarUrl || undefined}>
-            {data.profile.nickname.slice(0, 1).toUpperCase()}
+            {displayName.slice(0, 1).toUpperCase()}
           </Avatar>
           <div>
-            <Typography.Title level={3}>{data.profile.nickname}</Typography.Title>
+            <Typography.Title level={3}>{displayName}</Typography.Title>
             <Typography.Text code>{data.profile.accountId}</Typography.Text>
           </div>
         </Space>
