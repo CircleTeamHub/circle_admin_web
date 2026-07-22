@@ -1,8 +1,21 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { Button, Input, Modal, Space, Typography, message } from "antd";
 import { useEffect, useRef, useState } from "react";
 import { revealSensitiveField } from "../api/users";
 import type { SensitiveField } from "../types";
 import { getErrorMessage } from "../utils/errors";
+
+// 服务端 sensitive-access 的明文窗口固定为 60 秒，这里同时用作兜底和上限。
+const REVEAL_WINDOW_MS = 60_000;
+
+// revealedAt 和 expiresAt 都由服务端签发，两者相减得到的窗口不受管理员工作站
+// 时钟偏移影响；再按 REVEAL_WINDOW_MS 封顶，任何异常响应都不会让明文长期留在 DOM 里。
+function revealWindowMs(revealedAt: string, expiresAt: string): number {
+  const start = Date.parse(revealedAt);
+  const end = Date.parse(expiresAt);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return REVEAL_WINDOW_MS;
+  return Math.min(Math.max(0, end - start), REVEAL_WINDOW_MS);
+}
 
 interface SensitiveFieldValueProps {
   userId: string;
@@ -17,6 +30,7 @@ export function SensitiveFieldValue({
   label,
   maskedValue,
 }: SensitiveFieldValueProps) {
+  const queryClient = useQueryClient();
   const [modalOpen, setModalOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [reasonError, setReasonError] = useState(false);
@@ -61,14 +75,19 @@ export function SensitiveFieldValue({
       clearReveal();
       setRevealedValue(response.value);
       setIsRevealed(true);
-      const expiresAt = Date.parse(response.expiresAt);
-      const delay = Number.isFinite(expiresAt)
-        ? Math.max(0, expiresAt - Date.now())
-        : 60_000;
-      expiryTimer.current = setTimeout(clearReveal, delay);
+      expiryTimer.current = setTimeout(
+        clearReveal,
+        revealWindowMs(response.revealedAt, response.expiresAt),
+      );
       setModalOpen(false);
       setReason("");
       setReasonError(false);
+      // 本次查看已写入审计记录，主动让详情页的「最近 Admin 操作」重新拉取
+      // （应用关闭了窗口聚焦重取）。刷新失败由该卡片自己的错误态呈现，
+      // 不影响这次已经成功的明文查看。
+      void queryClient.invalidateQueries({
+        queryKey: ["admin-user-audit", userId],
+      });
     } catch (error) {
       message.error(getErrorMessage(error, "敏感信息查看失败"));
     } finally {
