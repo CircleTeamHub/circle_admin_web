@@ -44,7 +44,9 @@ VITE_UPTIME_KUMA_URL=https://uptime.example.com
 VITE_ALERTMANAGER_URL=https://alertmanager.example.com
 ```
 
-生产环境默认通过同域 `/api/v1` 访问后端。Admin 静态站点不承载 API 反向代理。
+生产环境默认通过同域 `/api/v1` 访问后端。外层 Caddy 直接把 `/api/*`
+路由到后端蓝绿别名 `circle-be-app:3000`；管理端 Nginx 只提供静态文件，
+不承载 API 反向代理。
 
 ## 验证
 
@@ -66,8 +68,16 @@ docker build -t circle-admin-web:local .
 4. 监控 4xx/5xx、审计插入和会话撤销错误。
 
 镜像采用 `node:22-alpine` 构建、`nginx:alpine` 运行。生产发布使用
-`Dockerfile.release`。建议部署在 `admin.<domain>`，并在外层开启 Cloudflare
-Access、VPN 或 IP allowlist。
+`Dockerfile.release`，基础 Nginx 镜像固定到 digest；主分支只构建一次
+`sha-<commit>` 镜像，版本发布只提升该 manifest 并按 digest 部署。
+
+Nginx 配置：
+
+- SPA fallback: `try_files $uri /index.html`
+- 不承载 `/api/` 反向代理；生产 API 路由由 `circle_be` 仓库中的 Caddy 管理
+
+建议部署在 `admin.<domain>`，并在外层开启 Cloudflare Access、VPN 或 IP
+allowlist。
 
 ## 当前限制
 

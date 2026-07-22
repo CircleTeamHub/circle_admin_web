@@ -71,6 +71,72 @@ describe("SensitiveFieldValue", () => {
     expect(screen.queryByText("jim@example.com")).not.toBeInTheDocument();
   });
 
+  it("remasks immediately when the target user changes", async () => {
+    mockedReveal.mockResolvedValue({
+      field: "email",
+      value: "jim@example.com",
+      revealedAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 60_000).toISOString(),
+    });
+    const view = render(
+      <SensitiveFieldValue
+        userId="u1"
+        field="email"
+        label="邮箱"
+        maskedValue="j***@example.com"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "查看原文" }));
+    fireEvent.change(screen.getByLabelText("查看原因"), {
+      target: { value: "CS-1024" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "确认查看" }));
+    expect(await screen.findByText("jim@example.com")).toBeInTheDocument();
+
+    view.rerender(
+      <SensitiveFieldValue
+        userId="u2"
+        field="email"
+        label="邮箱"
+        maskedValue="a***@example.com"
+      />,
+    );
+
+    expect(screen.queryByText("jim@example.com")).not.toBeInTheDocument();
+    expect(screen.getByText("a***@example.com")).toBeInTheDocument();
+  });
+
+  it("drops a pending reveal dialog when the target user changes", async () => {
+    const view = render(
+      <SensitiveFieldValue
+        userId="u1"
+        field="email"
+        label="邮箱"
+        maskedValue="j***@example.com"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "查看原文" }));
+    fireEvent.change(screen.getByLabelText("查看原因"), {
+      target: { value: "CS-1024" },
+    });
+
+    view.rerender(
+      <SensitiveFieldValue
+        userId="u2"
+        field="email"
+        label="邮箱"
+        maskedValue="a***@example.com"
+      />,
+    );
+
+    await waitFor(() =>
+      expect(screen.queryByLabelText("查看原因")).not.toBeInTheDocument(),
+    );
+    expect(mockedReveal).not.toHaveBeenCalled();
+  });
+
   it("clears the expiry timer when unmounted", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const clearTimeoutSpy = vi.spyOn(globalThis, "clearTimeout");

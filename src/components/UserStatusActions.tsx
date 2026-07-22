@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Alert, Button, Input, Modal, Space, Typography, message } from "antd";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { updateUserStatus } from "../api/users";
 import type {
   AdminUpdateUserStatusPayload,
@@ -50,6 +50,18 @@ export function UserStatusActions({
     setReasonError(false);
     setConfirmationError(false);
   };
+
+  // 详情页路由在 /users/:userId 之间切换时不会卸载本组件，
+  // 未重置的弹窗会把上一个用户的操作原因提交到新用户身上。
+  useEffect(() => {
+    return () => {
+      setTargetStatus(null);
+      setReason("");
+      setConfirmationAccountId("");
+      setReasonError(false);
+      setConfirmationError(false);
+    };
+  }, [userId]);
 
   const mutation = useMutation({
     mutationFn: (payload: AdminUpdateUserStatusPayload) =>

@@ -14,12 +14,7 @@ import { useMemo, useReducer, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { listUsers } from "../api/users";
 import { PageError } from "../components/PageError";
-import type {
-  AdminUserListItem,
-  AuthUser,
-  UserRole,
-  UserStatus,
-} from "../types";
+import type { AdminUserListItem, UserRole, UserStatus } from "../types";
 import { formatDateTime } from "../utils/format";
 
 const PAGE_SIZE = 20;
@@ -67,7 +62,7 @@ function toIsoDate(value?: string): string | undefined {
   return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
 }
 
-export function UsersPage({ currentUser: _currentUser }: { currentUser: AuthUser }) {
+export function UsersPage() {
   const navigate = useNavigate();
   const [state, dispatch] = useReducer(
     reduceUserListState,

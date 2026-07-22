@@ -34,7 +34,16 @@ export function SensitiveFieldValue({
     setIsRevealed(false);
   };
 
-  useEffect(() => clearReveal, []);
+  // 详情页路由在 /users/:userId 之间切换时不会卸载本组件，
+  // 因此必须按 userId/field 收回明文，否则会显示在错误的用户名下。
+  useEffect(() => {
+    return () => {
+      clearReveal();
+      setModalOpen(false);
+      setReason("");
+      setReasonError(false);
+    };
+  }, [userId, field]);
 
   const confirmReveal = async () => {
     const normalizedReason = reason.trim();

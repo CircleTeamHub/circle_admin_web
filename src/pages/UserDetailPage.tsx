@@ -143,7 +143,7 @@ export function UserDetailPage({ currentUser }: { currentUser: AuthUser }) {
           <Space orientation="vertical" size={14}>
             {CONTACT_LABELS.map(([field, label]) => (
               <SensitiveFieldValue
-                key={field}
+                key={`${userId}:${field}`}
                 userId={userId}
                 field={field}
                 label={label}
@@ -196,6 +196,7 @@ export function UserDetailPage({ currentUser }: { currentUser: AuthUser }) {
 
       <Card title="危险操作">
         <UserStatusActions
+          key={userId}
           userId={userId}
           accountId={data.profile.accountId}
           status={data.profile.status}

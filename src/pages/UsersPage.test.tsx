@@ -1,9 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { listUsers } from "../api/users";
-import type { AuthUser } from "../types";
 import {
   initialUserListState,
   reduceUserListState,
@@ -16,33 +15,6 @@ vi.mock("../api/users", async (importOriginal) => {
 });
 
 const mockedListUsers = vi.mocked(listUsers);
-const currentUser: AuthUser = {
-  id: "admin-1",
-  userId: "admin-1",
-  accountId: "support-admin",
-  role: "ADMIN",
-  status: "ACTIVE",
-};
-
-beforeAll(() => {
-  Object.defineProperty(window, "matchMedia", {
-    writable: true,
-    value: vi.fn().mockImplementation(() => ({
-      matches: false,
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    })),
-  });
-  class ResizeObserverMock {
-    observe() {}
-    unobserve() {}
-    disconnect() {}
-  }
-  vi.stubGlobal("ResizeObserver", ResizeObserverMock);
-});
 
 function renderPage() {
   const client = new QueryClient({
@@ -52,10 +24,7 @@ function renderPage() {
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={["/users"]}>
         <Routes>
-          <Route
-            path="/users"
-            element={<UsersPage currentUser={currentUser} />}
-          />
+          <Route path="/users" element={<UsersPage />} />
           <Route
             path="/users/:userId"
             element={<div>User detail destination</div>}

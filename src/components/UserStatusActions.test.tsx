@@ -122,4 +122,41 @@ describe("UserStatusActions", () => {
       });
     });
   });
+
+  it("drops a pending status dialog when the target user changes", async () => {
+    const client = new QueryClient({
+      defaultOptions: { mutations: { retry: false } },
+    });
+    const view = render(
+      <QueryClientProvider client={client}>
+        <UserStatusActions
+          userId="u1"
+          accountId="jim-1001"
+          status="ACTIVE"
+          currentUser={admin}
+        />
+      </QueryClientProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "封禁" }));
+    fireEvent.change(screen.getByLabelText("操作原因"), {
+      target: { value: "CS-2048 恶意刷屏" },
+    });
+
+    view.rerender(
+      <QueryClientProvider client={client}>
+        <UserStatusActions
+          userId="u2"
+          accountId="amy-2002"
+          status="ACTIVE"
+          currentUser={admin}
+        />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() =>
+      expect(screen.queryByLabelText("操作原因")).not.toBeInTheDocument(),
+    );
+    expect(mockedUpdateStatus).not.toHaveBeenCalled();
+  });
 });

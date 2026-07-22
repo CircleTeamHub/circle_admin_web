@@ -55,12 +55,10 @@ export function normalizeUserListResponse(
 }
 
 export async function listUsers(
-  params: UserListParams | string,
+  params: UserListParams,
 ): Promise<PageResult<AdminUserListItem>> {
-  const query =
-    typeof params === "string" ? params : userListQueryString(params);
   const response = await apiClient<BackendUserListResponse>(
-    `/admin/users?${query}`,
+    `/admin/users?${userListQueryString(params)}`,
   );
   return normalizeUserListResponse(response);
 }
@@ -85,21 +83,7 @@ export function revealSensitiveField(
 export function updateUserStatus(
   id: string,
   payload: AdminUpdateUserStatusPayload,
-): Promise<AdminUserStatusSummary>;
-export function updateUserStatus(
-  id: string,
-  status: UserStatus,
-  reason?: string,
-): Promise<AdminUserStatusSummary>;
-export function updateUserStatus(
-  id: string,
-  payloadOrStatus: AdminUpdateUserStatusPayload | UserStatus,
-  reason?: string,
 ): Promise<AdminUserStatusSummary> {
-  const payload =
-    typeof payloadOrStatus === "string"
-      ? { status: payloadOrStatus, reason }
-      : payloadOrStatus;
   return apiClient<AdminUserStatusSummary>(`/admin/users/${id}/status`, {
     method: "PATCH",
     body: JSON.stringify(payload),
