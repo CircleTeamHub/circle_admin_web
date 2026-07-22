@@ -4,7 +4,6 @@ import { listFriendReports } from "../api/reports";
 import { getOutboxHealth } from "../api/system";
 import { listUsers } from "../api/users";
 import { PageError } from "../components/PageError";
-import { userListQueryString } from "./UsersPage";
 
 function opsLinks() {
   return [
@@ -22,11 +21,11 @@ export function DashboardPage() {
   });
   const totalUsers = useQuery({
     queryKey: ["dashboard", "totalUsers"],
-    queryFn: () => listUsers(userListQueryString({ page: 1, limit: 1 })),
+    queryFn: () => listUsers({ page: 1, limit: 1 }),
   });
   const bannedUsers = useQuery({
     queryKey: ["dashboard", "bannedUsers"],
-    queryFn: () => listUsers(userListQueryString({ page: 1, limit: 1, status: "BANNED" })),
+    queryFn: () => listUsers({ page: 1, limit: 1, status: "BANNED" }),
   });
   const outbox = useQuery({
     queryKey: ["outboxHealth"],

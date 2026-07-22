@@ -1,30 +1,130 @@
-import { describe, expect, it } from 'vitest';
-import { isDangerousSelfStatusChange, userListQueryString } from './UsersPage';
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { listUsers } from "../api/users";
+import type { AuthUser } from "../types";
+import {
+  initialUserListState,
+  reduceUserListState,
+  UsersPage,
+} from "./UsersPage";
 
-describe('UsersPage helpers', () => {
-  it('builds accountId and status filters', () => {
-    expect(
-      userListQueryString({
-        accountId: ' jim ',
-        status: 'BANNED',
-        page: 2,
-        limit: 20,
-      }),
-    ).toBe('page=2&limit=20&accountId=jim&status=BANNED');
+vi.mock("../api/users", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../api/users")>();
+  return { ...original, listUsers: vi.fn() };
+});
+
+const mockedListUsers = vi.mocked(listUsers);
+const currentUser: AuthUser = {
+  id: "admin-1",
+  userId: "admin-1",
+  accountId: "support-admin",
+  role: "ADMIN",
+  status: "ACTIVE",
+};
+
+beforeAll(() => {
+  Object.defineProperty(window, "matchMedia", {
+    writable: true,
+    value: vi.fn().mockImplementation(() => ({
+      matches: false,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  });
+  class ResizeObserverMock {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+  vi.stubGlobal("ResizeObserver", ResizeObserverMock);
+});
+
+function renderPage() {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={["/users"]}>
+        <Routes>
+          <Route
+            path="/users"
+            element={<UsersPage currentUser={currentUser} />}
+          />
+          <Route
+            path="/users/:userId"
+            element={<div>User detail destination</div>}
+          />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
+describe("UsersPage", () => {
+  beforeEach(() => {
+    mockedListUsers.mockReset();
+    mockedListUsers.mockResolvedValue({
+      items: [
+        {
+          id: "u1",
+          accountId: "jim-1001",
+          nickname: "Jim",
+          avatarUrl: null,
+          maskedEmail: "j***@example.com",
+          maskedPhoneNumber: "*******5678",
+          role: "USER",
+          status: "ACTIVE",
+          createdAt: "2026-01-01T00:00:00.000Z",
+          lastOnline: null,
+        },
+      ],
+      total: 1,
+      page: 1,
+      limit: 20,
+    });
   });
 
-  it('does not allow admins to ban or delete themselves', () => {
-    expect(isDangerousSelfStatusChange('admin-1', 'admin-1', 'BANNED')).toBe(
-      true,
+  it("resets pagination whenever a server-side filter changes", () => {
+    const onPageTwo = { ...initialUserListState, page: 2 };
+
+    expect(
+      reduceUserListState(onPageTwo, {
+        type: "filters",
+        patch: { status: "BANNED" },
+      }),
+    ).toMatchObject({ page: 1, status: "BANNED" });
+    expect(
+      reduceUserListState(onPageTwo, { type: "page", page: 3 }),
+    ).toMatchObject({ page: 3 });
+  });
+
+  it("renders masked contacts and only a detail action", async () => {
+    renderPage();
+
+    expect(await screen.findByText("j***@example.com")).toBeInTheDocument();
+    expect(screen.getByText("*******5678")).toBeInTheDocument();
+    expect(screen.queryByText("jim@example.com")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "封禁" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "解封" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "删除" })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "查看详情" }),
+    ).toBeInTheDocument();
+  });
+
+  it("navigates to the selected user's detail route", async () => {
+    renderPage();
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "查看详情" }),
     );
-    expect(isDangerousSelfStatusChange('admin-1', 'admin-1', 'DELETED')).toBe(
-      true,
-    );
-    expect(isDangerousSelfStatusChange('admin-1', 'admin-1', 'ACTIVE')).toBe(
-      false,
-    );
-    expect(isDangerousSelfStatusChange('admin-1', 'user-2', 'BANNED')).toBe(
-      false,
-    );
+
+    expect(await screen.findByText("User detail destination")).toBeInTheDocument();
   });
 });
