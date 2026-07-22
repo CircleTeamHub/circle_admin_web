@@ -1,182 +1,253 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button, Form, Input, Modal, Select, Space, Table, Tag, Typography, message } from "antd";
+import { useQuery } from "@tanstack/react-query";
+import {
+  Avatar,
+  Button,
+  Input,
+  Select,
+  Space,
+  Table,
+  Tag,
+  Typography,
+} from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { useState } from "react";
-import { listUsers, updateUserStatus } from "../api/users";
+import { useMemo, useReducer, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { listUsers } from "../api/users";
 import { PageError } from "../components/PageError";
-import type { AdminUser, AuthUser, UserStatus } from "../types";
-import { getErrorMessage } from "../utils/errors";
+import type { AdminUserListItem, UserRole, UserStatus } from "../types";
 import { formatDateTime } from "../utils/format";
 
 const PAGE_SIZE = 20;
 
-export function userListQueryString(params: {
+export interface UserListState {
+  keyword?: string;
+  status?: UserStatus;
+  role?: UserRole;
+  createdFrom?: string;
+  createdTo?: string;
   page: number;
   limit: number;
-  accountId?: string;
-  status?: UserStatus;
-}) {
-  const search = new URLSearchParams({
-    page: String(params.page),
-    limit: String(params.limit),
-  });
-  const accountId = params.accountId?.trim();
-  if (accountId) search.set("accountId", accountId);
-  if (params.status) search.set("status", params.status);
-  return search.toString();
 }
 
-export function isDangerousSelfStatusChange(
-  currentUserId: string,
-  targetUserId: string,
-  nextStatus: UserStatus,
-) {
-  return currentUserId === targetUserId && nextStatus !== "ACTIVE";
+export const initialUserListState: UserListState = {
+  page: 1,
+  limit: PAGE_SIZE,
+};
+
+type UserListAction =
+  | { type: "page"; page: number }
+  | {
+      type: "filters";
+      patch: Partial<
+        Pick<
+          UserListState,
+          "keyword" | "status" | "role" | "createdFrom" | "createdTo"
+        >
+      >;
+    };
+
+export function reduceUserListState(
+  state: UserListState,
+  action: UserListAction,
+): UserListState {
+  if (action.type === "page") {
+    return { ...state, page: action.page };
+  }
+  return { ...state, ...action.patch, page: 1 };
 }
 
-export function UsersPage({ currentUser }: { currentUser: AuthUser }) {
-  const queryClient = useQueryClient();
-  const [page, setPage] = useState(1);
-  const [accountId, setAccountId] = useState("");
-  const [status, setStatus] = useState<UserStatus | undefined>();
-  const [modal, setModal] = useState<{
-    user: AdminUser;
-    nextStatus: UserStatus;
-  } | null>(null);
-  const [form] = Form.useForm<{ reason?: string }>();
+function toIsoDate(value?: string): string | undefined {
+  if (!value) return undefined;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
+}
 
-  const query = userListQueryString({ page, limit: PAGE_SIZE, accountId, status });
+export function UsersPage() {
+  const navigate = useNavigate();
+  const [state, dispatch] = useReducer(
+    reduceUserListState,
+    initialUserListState,
+  );
+  const [keywordDraft, setKeywordDraft] = useState("");
+  const query = useMemo(
+    () => ({
+      keyword: state.keyword,
+      status: state.status,
+      role: state.role,
+      createdFrom: toIsoDate(state.createdFrom),
+      createdTo: toIsoDate(state.createdTo),
+      page: state.page,
+      limit: state.limit,
+    }),
+    [state],
+  );
   const users = useQuery({
-    queryKey: ["users", query],
+    queryKey: ["admin-users", query],
     queryFn: () => listUsers(query),
   });
 
-  const mutation = useMutation({
-    mutationFn: (payload: { user: AdminUser; nextStatus: UserStatus; reason?: string }) =>
-      updateUserStatus(payload.user.id, payload.nextStatus, payload.reason),
-    onSuccess: () => {
-      message.success("用户状态已更新");
-      setModal(null);
-      form.resetFields();
-      queryClient.invalidateQueries({ queryKey: ["users"] });
-    },
-    onError: (error) => {
-      message.error(getErrorMessage(error, "用户状态更新失败"));
-    },
-  });
-
-  const currentUserId = currentUser.userId || currentUser.id;
-  const columns: ColumnsType<AdminUser> = [
-    { title: "accountId", dataIndex: "accountId" },
-    { title: "nickname", dataIndex: "nickname", render: (value) => value || "-" },
-    { title: "role", dataIndex: "role", render: (value) => <Tag>{value}</Tag> },
+  const columns: ColumnsType<AdminUserListItem> = [
     {
-      title: "status",
+      title: "头像",
+      dataIndex: "avatarUrl",
+      width: 72,
+      render: (value: string | null, record) => (
+        <Avatar src={value || undefined}>
+          {(record.nickname || record.accountId).slice(0, 1).toUpperCase()}
+        </Avatar>
+      ),
+    },
+    { title: "账号 ID", dataIndex: "accountId" },
+    { title: "昵称", dataIndex: "nickname" },
+    {
+      title: "邮箱",
+      dataIndex: "maskedEmail",
+      render: (value: string | null) => value || "-",
+    },
+    {
+      title: "手机号",
+      dataIndex: "maskedPhoneNumber",
+      render: (value: string | null) => value || "-",
+    },
+    {
+      title: "状态",
       dataIndex: "status",
       render: (value: UserStatus) => (
-        <Tag color={value === "ACTIVE" ? "green" : value === "BANNED" ? "red" : "default"}>
+        <Tag
+          color={
+            value === "ACTIVE" ? "green" : value === "BANNED" ? "red" : "default"
+          }
+        >
           {value}
         </Tag>
       ),
     },
-    { title: "createdAt", dataIndex: "createdAt", render: (value) => formatDateTime(value) },
-    { title: "lastOnline", dataIndex: "lastOnline", render: (value) => formatDateTime(value) },
+    {
+      title: "角色",
+      dataIndex: "role",
+      render: (value: UserRole) => <Tag>{value}</Tag>,
+    },
+    {
+      title: "注册时间",
+      dataIndex: "createdAt",
+      render: (value: string) => formatDateTime(value),
+    },
+    {
+      title: "最后在线",
+      dataIndex: "lastOnline",
+      render: (value: string | null) => formatDateTime(value),
+    },
     {
       title: "操作",
+      fixed: "right",
+      width: 110,
       render: (_, record) => (
-        <Space>
-          <Button
-            size="small"
-            disabled={isDangerousSelfStatusChange(currentUserId, record.id, "BANNED")}
-            onClick={() => setModal({ user: record, nextStatus: "BANNED" })}
-          >
-            封禁
-          </Button>
-          <Button size="small" onClick={() => setModal({ user: record, nextStatus: "ACTIVE" })}>
-            解封
-          </Button>
-          <Button
-            size="small"
-            danger
-            disabled={isDangerousSelfStatusChange(currentUserId, record.id, "DELETED")}
-            onClick={() => setModal({ user: record, nextStatus: "DELETED" })}
-          >
-            删除
-          </Button>
-        </Space>
+        <Button size="small" onClick={() => navigate(`/users/${record.id}`)}>
+          查看详情
+        </Button>
       ),
     },
   ];
 
   return (
-    <Space direction="vertical" size={16} className="page-stack">
+    <Space orientation="vertical" size={16} className="page-stack">
       <Typography.Title level={3}>用户管理</Typography.Title>
       <Space wrap>
         <Input.Search
           allowClear
-          placeholder="accountId"
-          value={accountId}
-          onChange={(event) => setAccountId(event.target.value)}
-          onSearch={() => setPage(1)}
-          style={{ width: 240 }}
+          aria-label="搜索用户"
+          placeholder="账号 ID、昵称、邮箱或手机号"
+          value={keywordDraft}
+          onChange={(event) => {
+            const value = event.target.value;
+            setKeywordDraft(value);
+            if (!value) {
+              dispatch({ type: "filters", patch: { keyword: undefined } });
+            }
+          }}
+          onSearch={(value) =>
+            dispatch({
+              type: "filters",
+              patch: { keyword: value.trim() || undefined },
+            })
+          }
+          style={{ width: 300 }}
         />
         <Select<UserStatus>
           allowClear
-          placeholder="status"
-          value={status}
-          onChange={(value) => {
-            setStatus(value);
-            setPage(1);
-          }}
-          style={{ width: 180 }}
-          options={["ACTIVE", "BANNED", "DELETED"].map((value) => ({ value, label: value }))}
+          aria-label="用户状态"
+          placeholder="状态"
+          value={state.status}
+          onChange={(status) =>
+            dispatch({ type: "filters", patch: { status } })
+          }
+          style={{ width: 150 }}
+          options={["ACTIVE", "BANNED", "DELETED"].map((value) => ({
+            value,
+            label: value,
+          }))}
+        />
+        <Select<UserRole>
+          allowClear
+          aria-label="用户角色"
+          placeholder="角色"
+          value={state.role}
+          onChange={(role) =>
+            dispatch({ type: "filters", patch: { role } })
+          }
+          style={{ width: 150 }}
+          options={["USER", "MEMBER", "ADMIN"].map((value) => ({
+            value,
+            label: value,
+          }))}
+        />
+        <Input
+          aria-label="注册开始时间"
+          type="datetime-local"
+          value={state.createdFrom || ""}
+          onChange={(event) =>
+            dispatch({
+              type: "filters",
+              patch: { createdFrom: event.target.value || undefined },
+            })
+          }
+          style={{ width: 210 }}
+        />
+        <Input
+          aria-label="注册结束时间"
+          type="datetime-local"
+          value={state.createdTo || ""}
+          onChange={(event) =>
+            dispatch({
+              type: "filters",
+              patch: { createdTo: event.target.value || undefined },
+            })
+          }
+          style={{ width: 210 }}
         />
       </Space>
       {users.isError ? (
-        <PageError error={users.error} onRetry={() => users.refetch()} message="用户列表加载失败" />
+        <PageError
+          error={users.error}
+          onRetry={() => users.refetch()}
+          message="用户列表加载失败"
+        />
       ) : null}
       <Table
         rowKey="id"
         columns={columns}
         dataSource={users.data?.items || []}
         loading={users.isLoading}
+        scroll={{ x: 1400 }}
         locale={{ emptyText: users.isError ? "加载失败" : "暂无用户" }}
         pagination={{
-          current: page,
-          pageSize: PAGE_SIZE,
+          current: state.page,
+          pageSize: state.limit,
           total: users.data?.total || 0,
-          onChange: setPage,
+          showSizeChanger: false,
+          onChange: (page) => dispatch({ type: "page", page }),
         }}
       />
-      <Modal
-        title={`确认将 ${modal?.user.accountId || ""} 改为 ${modal?.nextStatus || ""}`}
-        open={!!modal}
-        confirmLoading={mutation.isPending}
-        okText="确认"
-        cancelText="取消"
-        onCancel={() => setModal(null)}
-        onOk={async () => {
-          if (!modal) return;
-          const values = await form.validateFields();
-          mutation.mutate({ user: modal.user, nextStatus: modal.nextStatus, reason: values.reason });
-        }}
-      >
-        <Form form={form} layout="vertical">
-          <Form.Item
-            name="reason"
-            label="操作说明"
-            rules={[
-              {
-                required: modal?.nextStatus === "BANNED" || modal?.nextStatus === "DELETED",
-                message: "封禁或删除必须填写说明",
-              },
-              { max: 500, message: "最多 500 字" },
-            ]}
-          >
-            <Input.TextArea rows={4} maxLength={500} showCount />
-          </Form.Item>
-        </Form>
-      </Modal>
     </Space>
   );
 }

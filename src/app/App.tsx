@@ -11,6 +11,7 @@ import { LoginPage } from "../pages/LoginPage";
 import { ReportsPage } from "../pages/ReportsPage";
 import { SystemStatusPage } from "../pages/SystemStatusPage";
 import { UsersPage } from "../pages/UsersPage";
+import { UserDetailPage } from "../pages/UserDetailPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -46,7 +47,11 @@ function AdminRoutes() {
           <Route element={<AppLayout user={me.data} />}>
             <Route index element={<DashboardPage />} />
             <Route path="reports" element={<ReportsPage />} />
-            <Route path="users" element={<UsersPage currentUser={me.data} />} />
+            <Route path="users" element={<UsersPage />} />
+            <Route
+              path="users/:userId"
+              element={<UserDetailPage currentUser={me.data} />}
+            />
             <Route path="system" element={<SystemStatusPage />} />
           </Route>
         </Routes>
