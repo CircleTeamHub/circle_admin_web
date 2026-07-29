@@ -53,6 +53,10 @@ function SectionUnavailable({ title }: { title: string }) {
   return <Alert type="warning" showIcon title={`${title}暂时不可用`} />;
 }
 
+function SectionPending({ title }: { title: string }) {
+  return <Alert type="info" showIcon title={`${title}尚未获取`} />;
+}
+
 function SignupTrend({
   values,
 }: {
@@ -298,8 +302,10 @@ export function DashboardPage() {
           </Card>
         </Col>
         <Col xs={24} xl={12}>
-          <Card title="Outbox 状态">
-            {dashboard.data?.sections.system.status === "error" ? (
+          <Card title="Outbox 状态" loading={dashboard.isLoading}>
+            {!dashboard.data ? (
+              <SectionPending title="系统状态" />
+            ) : dashboard.data.sections.system.status === "error" ? (
               <SectionUnavailable title="系统数据" />
             ) : (
               <Space orientation="vertical">
@@ -316,7 +322,8 @@ export function DashboardPage() {
                       key={name}
                       color={status === "healthy" ? "green" : "red"}
                     >
-                      {name}
+                      <span>{name}</span>{" "}
+                      <span>{status === "healthy" ? "正常" : "异常"}</span>
                     </Tag>
                   ))}
                 </Space>

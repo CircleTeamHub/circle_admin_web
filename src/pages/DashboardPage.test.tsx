@@ -134,4 +134,19 @@ describe("DashboardPage", () => {
     expect(await screen.findByText("12,580")).toBeInTheDocument();
     expect(screen.getByText("商城数据暂时不可用")).toBeInTheDocument();
   });
+
+  it("reports system health as unknown when the dashboard request fails", async () => {
+    mockedGetDashboard.mockRejectedValue(new Error("network unavailable"));
+
+    renderPage();
+
+    expect(
+      await screen.findByText("Dashboard 加载失败"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("系统状态尚未获取")).toBeInTheDocument();
+    expect(screen.queryByText("API 异常")).not.toBeInTheDocument();
+    expect(screen.queryByText("数据库异常")).not.toBeInTheDocument();
+    expect(screen.queryByText("Redis 异常")).not.toBeInTheDocument();
+    expect(screen.queryByText("OpenIM 异常")).not.toBeInTheDocument();
+  });
 });

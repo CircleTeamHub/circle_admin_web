@@ -35,18 +35,22 @@ import { PageError } from "../components/PageError";
 import { getErrorMessage } from "../utils/errors";
 
 type PendingAction =
-  | {
+  | ({
       kind: "circle";
       target: AdminCircle;
       action: "disable" | "restore";
       expectedConfirmation: string;
-    }
-  | {
+    } & { idempotencyKey: string })
+  | ({
       kind: "group";
       target: AdminOpenimGroup;
       action: AdminGroupOperationType;
       expectedConfirmation: string;
-    };
+    } & { idempotencyKey: string });
+
+type PendingActionDraft =
+  | Omit<Extract<PendingAction, { kind: "circle" }>, "idempotencyKey">
+  | Omit<Extract<PendingAction, { kind: "group" }>, "idempotencyKey">;
 
 const CIRCLE_STATE: Record<
   CircleAdminState,
@@ -109,14 +113,13 @@ export function CommunityPage() {
 
   const operation = useMutation({
     mutationFn: async (action: PendingAction) => {
-      const idempotencyKey = crypto.randomUUID();
       if (action.kind === "circle") {
         const fn = action.action === "disable" ? disableCircle : restoreCircle;
         return fn(
           action.target.id,
           reason.trim(),
           confirmation.trim(),
-          idempotencyKey,
+          action.idempotencyKey,
         );
       }
       return requestGroupOperation(
@@ -124,11 +127,15 @@ export function CommunityPage() {
         action.action,
         reason.trim(),
         confirmation.trim(),
-        idempotencyKey,
+        action.idempotencyKey,
       );
     },
-    onSuccess: () => {
-      message.success("管理操作已提交，正在同步 OpenIM");
+    onSuccess: (_result, action) => {
+      message.success(
+        action.kind === "circle" && !action.target.groupID
+          ? "圈子状态已更新"
+          : "管理操作已提交，正在同步 OpenIM",
+      );
       setPendingAction(null);
       setReason("");
       setConfirmation("");
@@ -140,10 +147,10 @@ export function CommunityPage() {
       queryClient.invalidateQueries({ queryKey: ["adminCommunity"] }),
   });
 
-  const openAction = (action: PendingAction) => {
+  const openAction = (action: PendingActionDraft) => {
     setReason("");
     setConfirmation("");
-    setPendingAction(action);
+    setPendingAction({ ...action, idempotencyKey: crypto.randomUUID() });
   };
 
   const circleColumns: ColumnsType<AdminCircle> = [
@@ -205,12 +212,22 @@ export function CommunityPage() {
             </Button>
           );
         }
-        const canRestore = circle.deleted;
-        return canRestore ? (
+        const canRestore =
+          circle.deleted &&
+          ["DISABLED", "SYNC_FAILED"].includes(circle.adminState) &&
+          Boolean(
+            circle.adminDisabledAt &&
+              circle.adminDisabledBy &&
+              circle.adminDisableReason,
+          );
+        if (circle.deleted && !canRestore && !busy) {
+          return <Button disabled>不可恢复</Button>;
+        }
+        return circle.deleted ? (
           <Button
             icon={<UndoOutlined />}
             aria-label={`恢复 ${circle.name}`}
-            disabled={busy || !circle.groupID}
+            disabled={busy}
             onClick={() =>
               openAction({
                 kind: "circle",
@@ -227,7 +244,7 @@ export function CommunityPage() {
             danger
             icon={<StopOutlined />}
             aria-label={`停用 ${circle.name}`}
-            disabled={busy || !circle.groupID}
+            disabled={busy}
             onClick={() =>
               openAction({
                 kind: "circle",

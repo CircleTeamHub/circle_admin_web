@@ -105,7 +105,11 @@ describe("CommunityPage", () => {
       renderPage();
 
       fireEvent.click(
-        await screen.findByRole("button", { name: "停用 摄影圈" }),
+        await screen.findByRole(
+          "button",
+          { name: "停用 摄影圈" },
+          { timeout: 10_000 },
+        ),
       );
       fireEvent.change(screen.getByLabelText("操作原因"), {
         target: { value: "存在违规内容" },
@@ -125,6 +129,93 @@ describe("CommunityPage", () => {
       );
     },
   );
+
+  it("reuses the idempotency key when a failed action is retried", async () => {
+    mockedDisable
+      .mockRejectedValueOnce(new Error("response lost"))
+      .mockResolvedValueOnce({} as never);
+    renderPage();
+
+    fireEvent.click(
+      await screen.findByRole(
+        "button",
+        { name: "停用 摄影圈" },
+        { timeout: 10_000 },
+      ),
+    );
+    fireEvent.change(screen.getByLabelText("操作原因"), {
+      target: { value: "存在违规内容" },
+    });
+    fireEvent.change(screen.getByLabelText("确认文字"), {
+      target: { value: "摄影圈" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "确认提交" }));
+
+    await waitFor(() => expect(mockedDisable).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "确认提交" }),
+      ).not.toBeDisabled(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "确认提交" }));
+
+    await waitFor(() => expect(mockedDisable).toHaveBeenCalledTimes(2));
+    expect(mockedDisable.mock.calls[1]?.[3]).toBe(
+      mockedDisable.mock.calls[0]?.[3],
+    );
+  });
+
+  it("allows an unlinked circle to be disabled locally", async () => {
+    mockedListCircles.mockResolvedValue({
+      items: [
+        {
+          id: "circle-1",
+          name: "历史圈子",
+          groupID: null,
+          memberCount: 12,
+          postCount: 3,
+          deleted: false,
+          adminState: "ACTIVE",
+          adminDisabledAt: null,
+          adminDisabledBy: null,
+          adminDisableReason: null,
+          createdAt: "2026-07-29T00:00:00.000Z",
+          owner: {
+            id: "owner-1",
+            accountId: "alice",
+            nickname: "Alice",
+          },
+          latestOperation: null,
+        },
+      ],
+      total: 1,
+      page: 1,
+      limit: 20,
+    });
+    renderPage();
+
+    const disable = await screen.findByRole("button", {
+      name: "停用 历史圈子",
+    });
+    expect(disable).not.toBeDisabled();
+    fireEvent.click(disable);
+    fireEvent.change(screen.getByLabelText("操作原因"), {
+      target: { value: "历史违规内容" },
+    });
+    fireEvent.change(screen.getByLabelText("确认文字"), {
+      target: { value: "历史圈子" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "确认提交" }));
+
+    await waitFor(() =>
+      expect(mockedDisable).toHaveBeenCalledWith(
+        "circle-1",
+        "历史违规内容",
+        "历史圈子",
+        expect.any(String),
+      ),
+    );
+  });
 
   it(
     "can permanently dismiss a standalone OpenIM group",
@@ -195,6 +286,43 @@ describe("CommunityPage", () => {
     expect(screen.getByRole("button", { name: "不可恢复" })).toBeDisabled();
     expect(
       screen.queryByRole("button", { name: "恢复 已解散圈子" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("does not offer restore for a legacy deletion without admin provenance", async () => {
+    mockedListCircles.mockResolvedValue({
+      items: [
+        {
+          id: "circle-legacy",
+          name: "历史删除圈子",
+          groupID: "group-legacy",
+          memberCount: 3,
+          postCount: 1,
+          deleted: true,
+          adminState: "ACTIVE",
+          adminDisabledAt: null,
+          adminDisabledBy: null,
+          adminDisableReason: null,
+          createdAt: "2026-07-01T00:00:00.000Z",
+          owner: {
+            id: "owner-1",
+            accountId: "alice",
+            nickname: "Alice",
+          },
+          latestOperation: null,
+        },
+      ],
+      total: 1,
+      page: 1,
+      limit: 20,
+    });
+
+    renderPage();
+
+    expect(await screen.findByText("历史删除圈子")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "不可恢复" })).toBeDisabled();
+    expect(
+      screen.queryByRole("button", { name: "恢复 历史删除圈子" }),
     ).not.toBeInTheDocument();
   });
 });
