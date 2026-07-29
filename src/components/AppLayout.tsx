@@ -1,7 +1,9 @@
 import {
   DashboardOutlined,
+  CommentOutlined,
   LogoutOutlined,
   SafetyCertificateOutlined,
+  StarOutlined,
   TeamOutlined,
   ToolOutlined,
 } from "@ant-design/icons";
@@ -28,7 +30,9 @@ export function AppLayout({ user }: { user: AuthUser }) {
           items={[
             { key: "/", icon: <DashboardOutlined />, label: "Dashboard" },
             { key: "/reports", icon: <SafetyCertificateOutlined />, label: "举报审核" },
+            { key: "/community", icon: <CommentOutlined />, label: "圈子与群聊" },
             { key: "/users", icon: <TeamOutlined />, label: "用户管理" },
+            { key: "/fancy-numbers", icon: <StarOutlined />, label: "热门靓号" },
             { key: "/system", icon: <ToolOutlined />, label: "系统状态" },
           ]}
         />

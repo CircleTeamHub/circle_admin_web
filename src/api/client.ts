@@ -23,6 +23,7 @@ interface ApiClientOptions extends RequestInit {
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api/v1";
+let refreshInFlight: Promise<string> | null = null;
 
 function apiUrl(path: string): string {
   return `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
@@ -72,7 +73,7 @@ async function parseResponse<T>(response: Response): Promise<T> {
 async function refreshAccessToken(): Promise<string> {
   const session = getSession();
   if (!session?.refreshToken) {
-    throw new ApiError("Missing refresh token", 401);
+    throw new ApiError("登录已失效，请重新登录", 401);
   }
 
   const data = await apiClient<{ accessToken: string; refreshToken: string }>(
@@ -86,6 +87,15 @@ async function refreshAccessToken(): Promise<string> {
   );
   setSession(data);
   return data.accessToken;
+}
+
+function getRefreshedAccessToken(): Promise<string> {
+  if (!refreshInFlight) {
+    refreshInFlight = refreshAccessToken().finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  return refreshInFlight;
 }
 
 export async function apiClient<T>(
@@ -113,7 +123,12 @@ export async function apiClient<T>(
 
   if (response.status === 401 && auth && retryOnUnauthorized) {
     try {
-      const accessToken = await refreshAccessToken();
+      const latestSession = getSession();
+      const accessToken =
+        latestSession?.accessToken &&
+        latestSession.accessToken !== session?.accessToken
+          ? latestSession.accessToken
+          : await getRefreshedAccessToken();
       requestHeaders.Authorization = `Bearer ${accessToken}`;
       return parseResponse<T>(
         await fetch(apiUrl(path), {

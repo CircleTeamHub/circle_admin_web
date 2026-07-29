@@ -77,6 +77,44 @@ describe('apiClient', () => {
     });
   });
 
+  it('shares one rotating refresh request across concurrent 401 responses', async () => {
+    setSession({ accessToken: 'old-access', refreshToken: 'refresh-token' });
+    let secureCalls = 0;
+    let refreshCalls = 0;
+    globalThis.fetch = vi.fn().mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/auth/admin/refresh')) {
+        refreshCalls += 1;
+        await Promise.resolve();
+        return jsonResponse({
+          code: 0,
+          message: 'ok',
+          data: { accessToken: 'new-access', refreshToken: 'new-refresh' },
+        });
+      }
+      secureCalls += 1;
+      if (secureCalls <= 2) {
+        return jsonResponse(
+          { code: 401, message: 'expired', data: null },
+          { status: 401 },
+        );
+      }
+      return jsonResponse({ code: 0, message: 'ok', data: { ok: true } });
+    });
+
+    await expect(
+      Promise.all([
+        apiClient<{ ok: boolean }>('/secure'),
+        apiClient<{ ok: boolean }>('/secure'),
+      ]),
+    ).resolves.toEqual([{ ok: true }, { ok: true }]);
+    expect(refreshCalls).toBe(1);
+    expect(getSession()).toEqual({
+      accessToken: 'new-access',
+      refreshToken: 'new-refresh',
+    });
+  });
+
   it('clears the session when refresh fails', async () => {
     setSession({ accessToken: 'old-access', refreshToken: 'refresh-token' });
     globalThis.fetch = vi
