@@ -1,5 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   grantAvatarFrame,
@@ -186,6 +192,79 @@ describe("UserAvatarFramesCard", () => {
     await waitFor(() => expect(mockedInventory).toHaveBeenCalledTimes(2), {
       timeout: 1_000,
     });
+  });
+
+  it("keeps retrying when a past-looking expiry remains active", async () => {
+    vi.useFakeTimers();
+    const expiresAt = new Date(Date.now() - 1_000).toISOString();
+    mockedInventory.mockResolvedValue({
+      ...inventoryResponse,
+      items: inventoryResponse.items.map((item) => ({
+        ...item,
+        availableUntil: expiresAt,
+        ownedSources: item.ownedSources.map((source) => ({
+          ...source,
+          expiresAt,
+        })),
+      })),
+    });
+
+    const view = renderCard();
+    try {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1);
+      });
+      expect(screen.getByText("会员 Lv.3")).toBeInTheDocument();
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(50);
+      });
+      expect(mockedInventory).toHaveBeenCalledTimes(2);
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(30_000);
+      });
+      expect(mockedInventory).toHaveBeenCalledTimes(3);
+    } finally {
+      view.unmount();
+      vi.useRealTimers();
+    }
+  });
+
+  it("preserves loaded inventory when loading another grant page fails", async () => {
+    mockedInventory
+      .mockResolvedValueOnce({
+        ...inventoryResponse,
+        grants: {
+          ...inventoryResponse.grants,
+          items: [grantRecord],
+          hasMore: true,
+          nextCursor: "next-page",
+        },
+      })
+      .mockRejectedValueOnce(new Error("next page unavailable"))
+      .mockResolvedValueOnce({
+        ...inventoryResponse,
+        grants: {
+          ...inventoryResponse.grants,
+          items: [],
+        },
+      });
+    renderCard();
+
+    expect(await screen.findByText("历史发放")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "加载更多记录" }));
+
+    expect(await screen.findByText("更多发放记录加载失败")).toBeInTheDocument();
+    expect(screen.getByText("历史发放")).toBeInTheDocument();
+    expect(screen.getByText("会员 Lv.3")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "重试加载更多" }));
+    await waitFor(() => expect(mockedInventory).toHaveBeenCalledTimes(3));
+    expect(mockedInventory.mock.calls[2]).toEqual([
+      "user-1",
+      { cursor: "next-page", limit: 50 },
+    ]);
   });
 
   it("does not dismiss a grant dialog while the write is pending", async () => {

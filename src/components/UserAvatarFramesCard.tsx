@@ -20,7 +20,7 @@ import {
   message,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   getUserAvatarFrames,
   grantAvatarFrame,
@@ -52,6 +52,7 @@ function newIdempotencyKey(): string {
 }
 
 const MAX_TIMER_DELAY_MS = 2_147_483_647;
+const EXPIRY_RETRY_DELAY_MS = 30_000;
 
 export function UserAvatarFramesCard({ userId }: { userId: string }) {
   const queryClient = useQueryClient();
@@ -67,7 +68,6 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
     null,
   );
   const [revokeReason, setRevokeReason] = useState("");
-  const refreshedExpiryRef = useRef<number | null>(null);
 
   const resetGrantDraft = () => {
     setFrameId("");
@@ -95,10 +95,6 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
   );
 
   useEffect(() => {
-    refreshedExpiryRef.current = null;
-  }, [userId]);
-
-  useEffect(() => {
     const now = Date.now();
     const expirations = [
       ...grants
@@ -120,19 +116,24 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
       null,
     );
     if (nearestExpiry === null) return;
-    if (nearestExpiry <= now && refreshedExpiryRef.current === nearestExpiry) {
-      return;
-    }
 
-    const delay = Math.min(
+    const initialDelay = Math.min(
       Math.max(nearestExpiry - now, 0) + 50,
       MAX_TIMER_DELAY_MS,
     );
-    const timer = window.setTimeout(() => {
-      refreshedExpiryRef.current = nearestExpiry;
-      void inventory.refetch();
-    }, delay);
-    return () => window.clearTimeout(timer);
+    let cancelled = false;
+    let timer: number;
+    const refetchAndRetry = async () => {
+      await inventory.refetch();
+      if (!cancelled && nearestExpiry <= Date.now()) {
+        timer = window.setTimeout(refetchAndRetry, EXPIRY_RETRY_DELAY_MS);
+      }
+    };
+    timer = window.setTimeout(refetchAndRetry, initialDelay);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
   }, [current, grants, inventory.refetch]);
 
   const refresh = async () => {
@@ -268,7 +269,7 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
             style={{ marginBottom: 16 }}
           />
         ) : null}
-        {inventory.isError ? (
+        {inventory.isError && !current ? (
           <PageError
             error={inventory.error}
             onRetry={() => inventory.refetch()}
@@ -310,7 +311,21 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
               pagination={false}
               locale={{ emptyText: "暂无管理员发放记录" }}
             />
-            {inventory.hasNextPage ? (
+            {inventory.isFetchNextPageError ? (
+              <Alert
+                type="error"
+                showIcon
+                message="更多发放记录加载失败"
+                action={
+                  <Button
+                    loading={inventory.isFetchingNextPage}
+                    onClick={() => inventory.fetchNextPage()}
+                  >
+                    重试加载更多
+                  </Button>
+                }
+              />
+            ) : inventory.hasNextPage ? (
               <Button
                 loading={inventory.isFetchingNextPage}
                 onClick={() => inventory.fetchNextPage()}
