@@ -158,7 +158,12 @@ export function CommunityPage() {
   });
 
   const openAction = (action: PendingActionDraft) => {
-    if (operation.isPending) return;
+    if (
+      operation.isPending ||
+      (action.kind === "circle" ? circles.isError : groups.isError)
+    ) {
+      return;
+    }
     setReason("");
     setConfirmation("");
     setPendingAction({
@@ -170,6 +175,13 @@ export function CommunityPage() {
 
   const submitPendingAction = () => {
     if (!pendingAction) return;
+    if (
+      pendingAction.kind === "circle"
+        ? circles.isError
+        : groups.isError
+    ) {
+      return;
+    }
     const submittedPayload = JSON.stringify([
       reason.trim(),
       confirmation.trim(),
@@ -261,7 +273,7 @@ export function CommunityPage() {
           <Button
             icon={<UndoOutlined />}
             aria-label={`恢复 ${circle.name}`}
-            disabled={busy || operation.isPending}
+            disabled={busy || operation.isPending || circles.isError}
             onClick={() =>
               openAction({
                 kind: "circle",
@@ -278,7 +290,7 @@ export function CommunityPage() {
             danger
             icon={<StopOutlined />}
             aria-label={`停用 ${circle.name}`}
-            disabled={busy || operation.isPending}
+            disabled={busy || operation.isPending || circles.isError}
             onClick={() =>
               openAction({
                 kind: "circle",
@@ -366,7 +378,12 @@ export function CommunityPage() {
         return (
           <Space>
             <Button
-              disabled={!manageable || Boolean(busy) || operation.isPending}
+              disabled={
+                !manageable ||
+                Boolean(busy) ||
+                operation.isPending ||
+                groups.isError
+              }
               aria-label={`${operationLabel(muteAction)} ${group.name}`}
               onClick={() =>
                 openAction({
@@ -381,7 +398,12 @@ export function CommunityPage() {
             </Button>
             <Button
               danger
-              disabled={!manageable || Boolean(busy) || operation.isPending}
+              disabled={
+                !manageable ||
+                Boolean(busy) ||
+                operation.isPending ||
+                groups.isError
+              }
               aria-label={`解散 ${group.name}`}
               onClick={() =>
                 openAction({
@@ -409,7 +431,13 @@ export function CommunityPage() {
     : "";
   const destructive =
     pendingAction?.kind === "group" && pendingAction.action === "DISMISS";
+  const pendingActionQueryError = pendingAction
+    ? pendingAction.kind === "circle"
+      ? circles.isError
+      : groups.isError
+    : false;
   const canSubmit =
+    !pendingActionQueryError &&
     reason.trim().length >= 2 &&
     confirmation.trim() === pendingAction?.expectedConfirmation;
 
@@ -544,6 +572,13 @@ export function CommunityPage() {
         <Space orientation="vertical" size={12} className="page-stack">
           {destructive ? (
             <Alert type="error" showIcon title="群聊解散后无法恢复" />
+          ) : null}
+          {pendingActionQueryError ? (
+            <Alert
+              type="error"
+              showIcon
+              title="列表刷新失败，请重试成功后再提交"
+            />
           ) : null}
           <div>
             <Typography.Text>操作原因</Typography.Text>

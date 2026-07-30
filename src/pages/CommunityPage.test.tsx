@@ -43,11 +43,12 @@ function renderPage() {
       mutations: { retry: false },
     },
   });
-  return render(
+  const view = render(
     <QueryClientProvider client={client}>
       <CommunityPage />
     </QueryClientProvider>,
   );
+  return { client, ...view };
 }
 
 describe("CommunityPage", () => {
@@ -276,6 +277,46 @@ describe("CommunityPage", () => {
         screen.queryByRole("button", { name: "停用 摄影圈" }),
       ).not.toBeInTheDocument(),
     );
+  });
+
+  it("disables circle writes after a background list refresh fails", async () => {
+    const { client } = renderPage();
+    const disable = await screen.findByRole("button", {
+      name: "停用 摄影圈",
+    });
+    expect(disable).toBeEnabled();
+
+    mockedListCircles.mockRejectedValueOnce(new Error("poll failed"));
+    await client.refetchQueries({
+      queryKey: ["adminCommunity", "circles"],
+      exact: false,
+    });
+
+    await waitFor(() => expect(disable).toBeDisabled());
+    expect(screen.getByText("圈子列表加载失败")).toBeInTheDocument();
+  });
+
+  it("disables group writes after a background list refresh fails", async () => {
+    const { client } = renderPage();
+    fireEvent.click(await screen.findByText("全部群聊"));
+    const mute = await screen.findByRole("button", {
+      name: "全员禁言 周末徒步",
+    });
+    const dismiss = screen.getByRole("button", { name: "解散 周末徒步" });
+    expect(mute).toBeEnabled();
+    expect(dismiss).toBeEnabled();
+
+    mockedListGroups.mockRejectedValueOnce(new Error("poll failed"));
+    await client.refetchQueries({
+      queryKey: ["adminCommunity", "groups"],
+      exact: false,
+    });
+
+    await waitFor(() => {
+      expect(mute).toBeDisabled();
+      expect(dismiss).toBeDisabled();
+    });
+    expect(screen.getByText("OpenIM 群聊列表加载失败")).toBeInTheDocument();
   });
 
   it("allows an unlinked circle to be disabled locally", async () => {
