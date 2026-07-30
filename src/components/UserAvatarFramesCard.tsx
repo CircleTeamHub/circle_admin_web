@@ -58,7 +58,9 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
   const [expiresAt, setExpiresAt] = useState("");
   const [grantReason, setGrantReason] = useState("");
   const [grantRequestKey, setGrantRequestKey] = useState("");
-  const [revokeTarget, setRevokeTarget] = useState<AvatarFrameGrant | null>(null);
+  const [revokeTarget, setRevokeTarget] = useState<AvatarFrameGrant | null>(
+    null,
+  );
   const [revokeReason, setRevokeReason] = useState("");
 
   const rotateGrantRequestKey = () => {
@@ -142,7 +144,9 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
       title: "头像框",
       render: (_, item) => (
         <Space>
-          <Avatar src={item.imageUrl || undefined}>{item.name.slice(0, 1)}</Avatar>
+          <Avatar src={item.imageUrl || undefined}>
+            {item.name.slice(0, 1)}
+          </Avatar>
           <span>{item.name}</span>
           {item.equipped ? <Tag color="purple">佩戴中</Tag> : null}
         </Space>
@@ -387,6 +391,7 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
           rows={3}
           maxLength={500}
           showCount
+          disabled={revokeMutation.isPending}
           value={revokeReason}
           onChange={(event) => setRevokeReason(event.target.value)}
         />

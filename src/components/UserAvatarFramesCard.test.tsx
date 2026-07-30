@@ -128,9 +128,7 @@ describe("UserAvatarFramesCard", () => {
     expect(await screen.findByText("钻石头像框")).toBeInTheDocument();
     expect(screen.getByText("不展示头像框")).toBeInTheDocument();
     expect(screen.getByText("会员 Lv.3")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "发放头像框" }),
-    ).toBeEnabled();
+    expect(screen.getByRole("button", { name: "发放头像框" })).toBeEnabled();
     expect(mockedInventory).toHaveBeenCalledWith("user-1", {
       cursor: undefined,
       limit: 50,
@@ -138,8 +136,7 @@ describe("UserAvatarFramesCard", () => {
   });
 
   it("does not dismiss a grant dialog while the write is pending", async () => {
-    const pending =
-      deferred<Awaited<ReturnType<typeof grantAvatarFrame>>>();
+    const pending = deferred<Awaited<ReturnType<typeof grantAvatarFrame>>>();
     mockedGrant.mockReturnValue(pending.promise);
     renderCard();
 
@@ -173,9 +170,7 @@ describe("UserAvatarFramesCard", () => {
     mockedInventory.mockResolvedValueOnce({
       ...inventoryResponse,
       grants: {
-        items: [
-          grantRecord,
-        ],
+        items: [grantRecord],
         limit: 50,
         hasMore: false,
         nextCursor: null,
@@ -186,9 +181,7 @@ describe("UserAvatarFramesCard", () => {
     mockedRevoke.mockReturnValue(pending.promise);
     renderCard();
 
-    fireEvent.click(
-      await screen.findByRole("button", { name: /撤\s*销/ }),
-    );
+    fireEvent.click(await screen.findByRole("button", { name: /撤\s*销/ }));
     fireEvent.change(screen.getByLabelText("撤销原因"), {
       target: { value: "授权错误" },
     });
@@ -199,6 +192,7 @@ describe("UserAvatarFramesCard", () => {
     fireEvent.click(cancel);
 
     expect(cancel).toBeDisabled();
+    expect(screen.getByLabelText("撤销原因")).toBeDisabled();
     expect(screen.getByText("撤销 钻石头像框 授权")).toBeInTheDocument();
   });
 
@@ -241,8 +235,7 @@ describe("UserAvatarFramesCard", () => {
         nextCursor: null,
       },
     };
-    const refetch =
-      deferred<Awaited<ReturnType<typeof getUserAvatarFrames>>>();
+    const refetch = deferred<Awaited<ReturnType<typeof getUserAvatarFrames>>>();
     mockedInventory
       .mockResolvedValueOnce(activeInventory)
       .mockReturnValueOnce(refetch.promise);
@@ -258,18 +251,14 @@ describe("UserAvatarFramesCard", () => {
     });
     renderCard();
 
-    fireEvent.click(
-      await screen.findByRole("button", { name: /撤\s*销/ }),
-    );
+    fireEvent.click(await screen.findByRole("button", { name: /撤\s*销/ }));
     fireEvent.change(screen.getByLabelText("撤销原因"), {
       target: { value: "授权错误" },
     });
     fireEvent.click(screen.getByRole("button", { name: "确认撤销" }));
 
     await waitFor(() => expect(mockedInventory).toHaveBeenCalledTimes(2));
-    expect(
-      screen.getByRole("button", { name: /撤\s*销/ }),
-    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: /撤\s*销/ })).toBeDisabled();
 
     refetch.resolve({
       ...activeInventory,
@@ -287,9 +276,7 @@ describe("UserAvatarFramesCard", () => {
       },
     });
     expect(await screen.findByText("已撤销")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /撤\s*销/ }),
-    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: /撤\s*销/ })).toBeDisabled();
   });
 
   it("rotates the grant key when a failed request payload is edited", async () => {

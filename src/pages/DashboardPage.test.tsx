@@ -32,9 +32,7 @@ const dashboard: AdminDashboard = {
         newUsers: 186,
         activeUsers: 3204,
         bannedUsers: 42,
-        signupTrend: [
-          { date: "2026-07-29", value: 186 },
-        ],
+        signupTrend: [{ date: "2026-07-29", value: 186 }],
       },
     },
     community: {
@@ -146,9 +144,7 @@ describe("DashboardPage", () => {
 
     renderPage();
 
-    expect(
-      await screen.findByText("Dashboard 加载失败"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("Dashboard 加载失败")).toBeInTheDocument();
     expect(screen.getByText("系统状态尚未获取")).toBeInTheDocument();
     expect(screen.queryByText("API 异常")).not.toBeInTheDocument();
     expect(screen.queryByText("数据库异常")).not.toBeInTheDocument();
@@ -177,15 +173,27 @@ describe("DashboardPage", () => {
 
     renderPage();
 
-    for (const title of [
-      "用户总数",
-      "活跃用户",
-      "积分消费",
-      "待处理事项",
-    ]) {
+    for (const title of ["用户总数", "活跃用户", "积分消费", "待处理事项"]) {
       const card = (await screen.findByText(title)).closest(".ant-statistic");
       expect(card).not.toBeNull();
       expect(within(card as HTMLElement).getByText("--")).toBeInTheDocument();
     }
+  });
+
+  it("keeps the banned-user count unknown when only user metrics fail", async () => {
+    mockedGetDashboard.mockResolvedValue({
+      ...dashboard,
+      sections: {
+        ...dashboard.sections,
+        users: { status: "error", data: null },
+      },
+    });
+
+    renderPage();
+
+    const label = await screen.findByText("封禁用户");
+    const row = label.closest(".ant-descriptions-item");
+    expect(row).not.toBeNull();
+    expect(within(row as HTMLElement).getByText("--")).toBeInTheDocument();
   });
 });

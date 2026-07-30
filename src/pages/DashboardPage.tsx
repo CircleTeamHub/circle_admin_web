@@ -94,9 +94,7 @@ export function DashboardPage() {
   const moderation = valueOf(dashboard.data?.sections.moderation);
   const system = valueOf(dashboard.data?.sections.system);
   const pendingTotal =
-    moderation && system
-      ? moderation.pendingTotal + system.failed
-      : null;
+    moderation && system ? moderation.pendingTotal + system.failed : null;
 
   return (
     <Space orientation="vertical" size={16} className="page-stack">
@@ -224,7 +222,7 @@ export function DashboardPage() {
                   {community?.newMembers ?? 0}
                 </Descriptions.Item>
                 <Descriptions.Item label="封禁用户">
-                  {users?.bannedUsers ?? 0}
+                  {users ? users.bannedUsers : "--"}
                 </Descriptions.Item>
               </Descriptions>
             )}
@@ -241,7 +239,10 @@ export function DashboardPage() {
         <Row gutter={[16, 16]}>
           <Col xs={24} sm={12} xl={6}>
             <Card>
-              <Statistic title="有效会员" value={commerce?.activeMembers ?? 0} />
+              <Statistic
+                title="有效会员"
+                value={commerce?.activeMembers ?? 0}
+              />
               <Typography.Text type="secondary">
                 期间新增 {commerce?.newMemberships ?? 0}
               </Typography.Text>
@@ -381,7 +382,8 @@ export function DashboardPage() {
 
       {dashboard.data ? (
         <Typography.Text type="secondary">
-          最后更新：{formatDateTime(dashboard.data.generatedAt)} · 每 60 秒自动刷新
+          最后更新：{formatDateTime(dashboard.data.generatedAt)} · 每 60
+          秒自动刷新
         </Typography.Text>
       ) : null}
     </Space>
