@@ -350,7 +350,9 @@ export function FancyNumbersPage() {
         cancelButtonProps={{ disabled: writePending }}
         onOk={submitAdd}
         onCancel={() => {
-          if (!writePending) setAddOpen(false);
+          if (writePending) return;
+          setAddOpen(false);
+          setInputValue("");
         }}
       >
         <Space orientation="vertical" size={8} className="page-stack">

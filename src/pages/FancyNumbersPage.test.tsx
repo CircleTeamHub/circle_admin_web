@@ -118,6 +118,22 @@ describe("FancyNumbersPage", () => {
     expect(mockedAdd.mock.calls[0]?.[0]).toEqual(["AB12C3", "XY98Z7"]);
   });
 
+  it("clears a canceled recommendation batch", async () => {
+    renderPage();
+
+    const addButton = await screen.findByRole("button", {
+      name: "添加热门靓号",
+    });
+    fireEvent.click(addButton);
+    fireEvent.change(screen.getByLabelText("靓号列表"), {
+      target: { value: "AB12C3\nXY98Z7" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /取\s*消/ }));
+
+    fireEvent.click(addButton);
+    expect(screen.getByLabelText("靓号列表")).toHaveValue("");
+  });
+
   it("moves a recommendation with the accessible ordering controls", async () => {
     renderPage();
 

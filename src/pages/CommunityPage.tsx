@@ -78,6 +78,10 @@ function operationLabel(type: AdminGroupOperationType) {
       : "永久解散";
 }
 
+function isManageableGroupStatus(status: number) {
+  return status === 0 || status === 3;
+}
+
 export function CommunityPage() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("circles");
@@ -316,29 +320,43 @@ export function CommunityPage() {
     {
       title: "状态",
       width: 150,
-      render: (_, group) => (
-        <Space orientation="vertical" size={2}>
-          <Tag color={group.muted ? "orange" : "green"}>
-            {group.muted ? "全员禁言" : "正常"}
-          </Tag>
-          {group.pendingOperation &&
-          ["PENDING", "PROCESSING"].includes(group.pendingOperation.status) ? (
-            <Tag color="processing">
-              {operationLabel(group.pendingOperation.type)}处理中
+      render: (_, group) => {
+        const manageable = isManageableGroupStatus(group.status);
+        return (
+          <Space orientation="vertical" size={2}>
+            <Tag
+              color={
+                !manageable ? "red" : group.muted ? "orange" : "green"
+              }
+            >
+              {!manageable
+                ? "已解散/不可用"
+                : group.muted
+                  ? "全员禁言"
+                  : "正常"}
             </Tag>
-          ) : null}
-          {group.pendingOperation?.status === "FAILED" ? (
-            <Typography.Text type="danger">
-              {group.pendingOperation.lastError || "操作失败"}
-            </Typography.Text>
-          ) : null}
-        </Space>
-      ),
+            {group.pendingOperation &&
+            ["PENDING", "PROCESSING"].includes(
+              group.pendingOperation.status,
+            ) ? (
+              <Tag color="processing">
+                {operationLabel(group.pendingOperation.type)}处理中
+              </Tag>
+            ) : null}
+            {group.pendingOperation?.status === "FAILED" ? (
+              <Typography.Text type="danger">
+                {group.pendingOperation.lastError || "操作失败"}
+              </Typography.Text>
+            ) : null}
+          </Space>
+        );
+      },
     },
     {
       title: "操作",
       width: 240,
       render: (_, group) => {
+        const manageable = isManageableGroupStatus(group.status);
         const busy =
           group.pendingOperation &&
           ["PENDING", "PROCESSING"].includes(group.pendingOperation.status);
@@ -348,7 +366,7 @@ export function CommunityPage() {
         return (
           <Space>
             <Button
-              disabled={Boolean(busy) || operation.isPending}
+              disabled={!manageable || Boolean(busy) || operation.isPending}
               aria-label={`${operationLabel(muteAction)} ${group.name}`}
               onClick={() =>
                 openAction({
@@ -363,7 +381,7 @@ export function CommunityPage() {
             </Button>
             <Button
               danger
-              disabled={Boolean(busy) || operation.isPending}
+              disabled={!manageable || Boolean(busy) || operation.isPending}
               aria-label={`解散 ${group.name}`}
               onClick={() =>
                 openAction({

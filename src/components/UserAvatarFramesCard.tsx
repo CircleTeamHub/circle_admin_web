@@ -117,18 +117,24 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
     );
     if (nearestExpiry === null) return;
 
+    let cancelled = false;
+    let timer: number;
+    const scheduleNext = () => {
+      const remaining = nearestExpiry - Date.now();
+      const delay =
+        remaining <= 0
+          ? EXPIRY_RETRY_DELAY_MS
+          : Math.min(remaining + 50, MAX_TIMER_DELAY_MS);
+      timer = window.setTimeout(refetchAndRetry, delay);
+    };
+    const refetchAndRetry = async () => {
+      await inventory.refetch();
+      if (!cancelled) scheduleNext();
+    };
     const initialDelay = Math.min(
       Math.max(nearestExpiry - now, 0) + 50,
       MAX_TIMER_DELAY_MS,
     );
-    let cancelled = false;
-    let timer: number;
-    const refetchAndRetry = async () => {
-      await inventory.refetch();
-      if (!cancelled && nearestExpiry <= Date.now()) {
-        timer = window.setTimeout(refetchAndRetry, EXPIRY_RETRY_DELAY_MS);
-      }
-    };
     timer = window.setTimeout(refetchAndRetry, initialDelay);
     return () => {
       cancelled = true;

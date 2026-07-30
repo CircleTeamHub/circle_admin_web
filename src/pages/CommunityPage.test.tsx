@@ -358,6 +358,39 @@ describe("CommunityPage", () => {
     },
   );
 
+  it("marks dismissed OpenIM groups unavailable and disables their actions", async () => {
+    mockedListGroups.mockResolvedValue({
+      items: [
+        {
+          groupId: "group-dismissed",
+          name: "已解散群",
+          faceUrl: null,
+          status: 2,
+          muted: false,
+          memberCount: 0,
+          ownerUserId: null,
+          ownerName: null,
+          linkedCircle: null,
+          pendingOperation: null,
+        },
+      ],
+      total: 1,
+      page: 1,
+      limit: 20,
+    });
+    renderPage();
+
+    fireEvent.click(await screen.findByText("全部群聊"));
+
+    expect(await screen.findByText("已解散/不可用")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "全员禁言 已解散群" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "解散 已解散群" }),
+    ).toBeDisabled();
+  });
+
   it("does not offer restore after a linked group was permanently dismissed", async () => {
     mockedListCircles.mockResolvedValue({
       items: [

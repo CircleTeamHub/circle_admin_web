@@ -231,6 +231,46 @@ describe("UserAvatarFramesCard", () => {
     }
   });
 
+  it("reschedules capped timers until a distant expiry is reached", async () => {
+    vi.useFakeTimers();
+    const maxTimerDelay = 2_147_483_647;
+    const expiresAt = new Date(
+      Date.now() + maxTimerDelay + 100_000,
+    ).toISOString();
+    mockedInventory.mockResolvedValue({
+      ...inventoryResponse,
+      items: inventoryResponse.items.map((item) => ({
+        ...item,
+        availableUntil: expiresAt,
+        ownedSources: item.ownedSources.map((source) => ({
+          ...source,
+          expiresAt,
+        })),
+      })),
+    });
+
+    const view = renderCard();
+    try {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1);
+      });
+      expect(screen.getByText("会员 Lv.3")).toBeInTheDocument();
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(maxTimerDelay);
+      });
+      expect(mockedInventory).toHaveBeenCalledTimes(2);
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(100_050);
+      });
+      expect(mockedInventory).toHaveBeenCalledTimes(3);
+    } finally {
+      view.unmount();
+      vi.useRealTimers();
+    }
+  });
+
   it("preserves loaded inventory when loading another grant page fails", async () => {
     mockedInventory
       .mockResolvedValueOnce({
