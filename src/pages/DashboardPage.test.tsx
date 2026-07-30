@@ -114,9 +114,12 @@ describe("DashboardPage", () => {
     expect(screen.getByText("治理与系统健康")).toBeInTheDocument();
     expect(screen.getByText("21")).toBeInTheDocument();
     expect(screen.getByText("OpenIM")).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: "审核用户举报" }),
-    ).toHaveAttribute("href", "/reports");
+    expect(screen.getByText(/统计区间（Asia\/Shanghai）/)).toBeInTheDocument();
+    expect(screen.getByText(/2026\/07\/29 00:00:00/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "审核用户举报" })).toHaveAttribute(
+      "href",
+      "/reports",
+    );
   });
 
   it("reloads the dashboard when the range changes", async () => {

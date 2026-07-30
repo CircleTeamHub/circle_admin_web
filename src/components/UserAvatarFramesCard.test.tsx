@@ -368,6 +368,125 @@ describe("UserAvatarFramesCard", () => {
     expect(screen.getByText("撤销 钻石头像框 授权")).toBeInTheDocument();
   });
 
+  it("preserves the submitted revoke reason after an ambiguous failure", async () => {
+    const activeInventory = {
+      ...inventoryResponse,
+      grants: {
+        ...inventoryResponse.grants,
+        items: [grantRecord],
+      },
+    };
+    mockedInventory
+      .mockResolvedValueOnce(activeInventory)
+      .mockRejectedValueOnce(new Error("refresh unavailable"))
+      .mockResolvedValue(activeInventory);
+    mockedRevoke
+      .mockRejectedValueOnce(new Error("response lost"))
+      .mockResolvedValueOnce({
+        replayed: true,
+        grant: {
+          ...grantRecord,
+          status: "REVOKED",
+          revokeReason: "第一次原因",
+        },
+      });
+    renderCard();
+
+    fireEvent.click(await screen.findByRole("button", { name: /撤\s*销/ }));
+    fireEvent.change(screen.getByLabelText("撤销原因"), {
+      target: { value: "第一次原因" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "确认撤销" }));
+
+    await waitFor(() => expect(mockedRevoke).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(screen.getByLabelText("撤销原因")).toBeDisabled(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "确认撤销" }));
+
+    await waitFor(() => expect(mockedRevoke).toHaveBeenCalledTimes(2));
+    expect(mockedRevoke.mock.calls[0]?.[1]).toEqual({
+      reason: "第一次原因",
+    });
+    expect(mockedRevoke.mock.calls[1]?.[1]).toEqual({
+      reason: "第一次原因",
+    });
+  });
+
+  it("shows a retry alert when refreshing cached inventory fails", async () => {
+    mockedInventory
+      .mockResolvedValueOnce({
+        ...inventoryResponse,
+        grants: {
+          ...inventoryResponse.grants,
+          items: [grantRecord],
+        },
+      })
+      .mockRejectedValueOnce(new Error("refresh unavailable"));
+    mockedRevoke.mockResolvedValue({
+      replayed: false,
+      grant: {
+        ...grantRecord,
+        status: "REVOKED",
+        revokeReason: "授权错误",
+      },
+    });
+    renderCard();
+
+    fireEvent.click(await screen.findByRole("button", { name: /撤\s*销/ }));
+    fireEvent.change(screen.getByLabelText("撤销原因"), {
+      target: { value: "授权错误" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "确认撤销" }));
+
+    expect(
+      await screen.findByText("头像框信息刷新失败，当前显示的是缓存数据"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("历史发放")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "重新刷新" }),
+    ).toBeInTheDocument();
+  });
+
+  it("revalidates a grant expiration at submit time", async () => {
+    const view = renderCard();
+    try {
+      const grantButton = await screen.findByRole("button", {
+        name: "发放头像框",
+      });
+      await waitFor(() => expect(grantButton).toBeEnabled());
+      fireEvent.click(grantButton);
+      fireEvent.mouseDown(screen.getByLabelText("选择头像框"));
+      fireEvent.click(
+        screen.getByText("钻石头像框", {
+          selector: ".ant-select-item-option-content",
+        }),
+      );
+      const future = new Date(Date.now() + 60_000);
+      const pad = (value: number) => String(value).padStart(2, "0");
+      const futureInput = `${future.getFullYear()}-${pad(
+        future.getMonth() + 1,
+      )}-${pad(future.getDate())}T${pad(future.getHours())}:${pad(
+        future.getMinutes(),
+      )}`;
+      fireEvent.change(screen.getByLabelText("到期时间"), {
+        target: { value: futureInput },
+      });
+      fireEvent.change(screen.getByLabelText("发放原因"), {
+        target: { value: "限时授权" },
+      });
+
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(Date.now() + 120_000));
+      fireEvent.click(screen.getByRole("button", { name: "确认发放" }));
+
+      expect(mockedGrant).not.toHaveBeenCalled();
+    } finally {
+      view.unmount();
+      vi.useRealTimers();
+    }
+  });
+
   it("clears a canceled grant draft before reopening the dialog", async () => {
     renderCard();
 

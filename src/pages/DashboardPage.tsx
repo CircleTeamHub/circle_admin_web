@@ -57,6 +57,25 @@ function SectionPending({ title }: { title: string }) {
   return <Alert type="info" showIcon title={`${title}尚未获取`} />;
 }
 
+function formatInTimeZone(value: string, timezone: string): string {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return value;
+  try {
+    return new Intl.DateTimeFormat("zh-CN", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    }).format(date);
+  } catch {
+    return formatDateTime(value);
+  }
+}
+
 function SignupTrend({
   values,
 }: {
@@ -382,8 +401,18 @@ export function DashboardPage() {
 
       {dashboard.data ? (
         <Typography.Text type="secondary">
-          最后更新：{formatDateTime(dashboard.data.generatedAt)} · 每 60
-          秒自动刷新
+          统计区间（{dashboard.data.timezone}）：
+          {formatInTimeZone(
+            dashboard.data.startAt,
+            dashboard.data.timezone,
+          )} 至{" "}
+          {formatInTimeZone(dashboard.data.endAt, dashboard.data.timezone)} ·
+          最后更新：
+          {formatInTimeZone(
+            dashboard.data.generatedAt,
+            dashboard.data.timezone,
+          )}{" "}
+          · 每 60 秒自动刷新
         </Typography.Text>
       ) : null}
     </Space>

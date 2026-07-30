@@ -68,6 +68,9 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
     null,
   );
   const [revokeReason, setRevokeReason] = useState("");
+  const [revokeSubmittedReason, setRevokeSubmittedReason] = useState<
+    string | null
+  >(null);
 
   const resetGrantDraft = () => {
     setFrameId("");
@@ -168,20 +171,34 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
   });
 
   const revokeMutation = useMutation({
-    mutationFn: () => {
+    mutationFn: (reason: string) => {
       if (!revokeTarget) throw new Error("未选择发放记录");
       return revokeAvatarFrameGrant(revokeTarget.id, {
-        reason: revokeReason.trim(),
+        reason,
       });
     },
     onSuccess: async ({ replayed }) => {
       setRevokeTarget(null);
       setRevokeReason("");
+      setRevokeSubmittedReason(null);
       message.success(replayed ? "该撤销请求已处理" : "头像框授权已撤销");
       await refresh();
     },
-    onError: (error) => {
+    onError: async (error) => {
       message.error(getErrorMessage(error, "头像框撤销失败"));
+      const refreshed = await inventory.refetch();
+      if (refreshed.isError) return;
+      const refreshedGrant = refreshed.data?.pages
+        .flatMap((page) => page.grants.items)
+        .find((grant) => grant.id === revokeTarget?.id);
+      if (!refreshedGrant || refreshedGrant.status !== "ACTIVE") {
+        setRevokeTarget(null);
+        setRevokeReason("");
+        setRevokeSubmittedReason(null);
+        message.info("撤销状态已刷新");
+        return;
+      }
+      setRevokeSubmittedReason(null);
     },
   });
 
@@ -283,6 +300,21 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
           />
         ) : (
           <Space orientation="vertical" size={16} style={{ width: "100%" }}>
+            {inventory.isError && current && !inventory.isFetchNextPageError ? (
+              <Alert
+                type="error"
+                showIcon
+                message="头像框信息刷新失败，当前显示的是缓存数据"
+                action={
+                  <Button
+                    loading={inventory.isFetching}
+                    onClick={() => inventory.refetch()}
+                  >
+                    重新刷新
+                  </Button>
+                }
+              />
+            ) : null}
             <Descriptions column={1} size="small" title="当前展示">
               <Descriptions.Item label="头像框">
                 {inventory.isLoading && !current
@@ -367,8 +399,17 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
           resetGrantDraft();
         }}
         onOk={() => {
-          const normalizedExpiresAt = expiresAt
-            ? new Date(expiresAt).toISOString()
+          const expiration = expiresAt ? new Date(expiresAt) : null;
+          if (
+            expiration &&
+            (!Number.isFinite(expiration.getTime()) ||
+              expiration.getTime() <= Date.now())
+          ) {
+            message.error("到期时间必须晚于当前时间");
+            return;
+          }
+          const normalizedExpiresAt = expiration
+            ? expiration.toISOString()
             : null;
           const submittedPayload = JSON.stringify([
             frameId,
@@ -448,16 +489,26 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
             revokeReason.trim().length > 500,
         }}
         confirmLoading={revokeMutation.isPending}
-        closable={!revokeMutation.isPending}
-        mask={{ closable: !revokeMutation.isPending }}
-        keyboard={!revokeMutation.isPending}
-        cancelButtonProps={{ disabled: revokeMutation.isPending }}
+        closable={!revokeMutation.isPending && revokeSubmittedReason === null}
+        mask={{
+          closable: !revokeMutation.isPending && revokeSubmittedReason === null,
+        }}
+        keyboard={!revokeMutation.isPending && revokeSubmittedReason === null}
+        cancelButtonProps={{
+          disabled: revokeMutation.isPending || revokeSubmittedReason !== null,
+        }}
         onCancel={() => {
-          if (revokeMutation.isPending) return;
+          if (revokeMutation.isPending || revokeSubmittedReason !== null)
+            return;
           setRevokeTarget(null);
           setRevokeReason("");
+          setRevokeSubmittedReason(null);
         }}
-        onOk={() => revokeMutation.mutate()}
+        onOk={() => {
+          const reason = revokeSubmittedReason ?? revokeReason.trim();
+          if (!revokeSubmittedReason) setRevokeSubmittedReason(reason);
+          revokeMutation.mutate(reason);
+        }}
         destroyOnHidden
       >
         <Input.TextArea
@@ -466,7 +517,7 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
           rows={3}
           maxLength={500}
           showCount
-          disabled={revokeMutation.isPending}
+          disabled={revokeMutation.isPending || revokeSubmittedReason !== null}
           value={revokeReason}
           onChange={(event) => setRevokeReason(event.target.value)}
         />
