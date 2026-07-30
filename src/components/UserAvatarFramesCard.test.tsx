@@ -298,6 +298,10 @@ describe("UserAvatarFramesCard", () => {
     expect(await screen.findByText("更多发放记录加载失败")).toBeInTheDocument();
     expect(screen.getByText("历史发放")).toBeInTheDocument();
     expect(screen.getByText("会员 Lv.3")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "发放头像框" }),
+    ).toBeEnabled();
+    expect(screen.getByRole("button", { name: /撤\s*销/ })).toBeEnabled();
 
     fireEvent.click(screen.getByRole("button", { name: "重试加载更多" }));
     await waitFor(() => expect(mockedInventory).toHaveBeenCalledTimes(3));

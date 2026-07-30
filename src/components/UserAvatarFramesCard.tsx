@@ -92,6 +92,8 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
     getNextPageParam: (page) => page.grants.nextCursor || undefined,
   });
   const current = inventory.data?.pages[0];
+  const inventoryAuthorityError =
+    inventory.isError && !inventory.isFetchNextPageError;
   const grants = useMemo(
     () => inventory.data?.pages.flatMap((page) => page.grants.items) ?? [],
     [inventory.data],
@@ -260,7 +262,7 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
           disabled={
             grant.status !== "ACTIVE" ||
             revokeMutation.isPending ||
-            inventory.isError
+            inventoryAuthorityError
           }
           onClick={() => setRevokeTarget(grant)}
         >
@@ -277,7 +279,7 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
         extra={
           <Button
             type="primary"
-            disabled={!assets.data?.length || inventory.isError}
+            disabled={!assets.data?.length || inventoryAuthorityError}
             onClick={() => {
               setGrantRequestKey(newIdempotencyKey());
               setGrantOpen(true);
