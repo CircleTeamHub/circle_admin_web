@@ -257,7 +257,11 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
         <Button
           danger
           size="small"
-          disabled={grant.status !== "ACTIVE" || revokeMutation.isPending}
+          disabled={
+            grant.status !== "ACTIVE" ||
+            revokeMutation.isPending ||
+            inventory.isError
+          }
           onClick={() => setRevokeTarget(grant)}
         >
           撤销
@@ -273,7 +277,7 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
         extra={
           <Button
             type="primary"
-            disabled={!assets.data?.length}
+            disabled={!assets.data?.length || inventory.isError}
             onClick={() => {
               setGrantRequestKey(newIdempotencyKey());
               setGrantOpen(true);

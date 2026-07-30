@@ -446,6 +446,8 @@ describe("UserAvatarFramesCard", () => {
     expect(
       screen.getByRole("button", { name: "重新刷新" }),
     ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /撤\s*销/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "发放头像框" })).toBeDisabled();
   });
 
   it("revalidates a grant expiration at submit time", async () => {
