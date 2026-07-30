@@ -114,6 +114,9 @@ describe("DashboardPage", () => {
     expect(screen.getByText("治理与系统健康")).toBeInTheDocument();
     expect(screen.getByText("21")).toBeInTheDocument();
     expect(screen.getByText("OpenIM")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "审核用户举报" }),
+    ).toHaveAttribute("href", "/reports");
   });
 
   it("reloads the dashboard when the range changes", async () => {

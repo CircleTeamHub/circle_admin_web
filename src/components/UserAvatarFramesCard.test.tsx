@@ -135,6 +135,25 @@ describe("UserAvatarFramesCard", () => {
     });
   });
 
+  it("refetches when the nearest active grant expires", async () => {
+    const expiresAt = new Date(Date.now() + 30).toISOString();
+    mockedInventory.mockResolvedValue({
+      ...inventoryResponse,
+      grants: {
+        ...inventoryResponse.grants,
+        items: [{ ...grantRecord, expiresAt }],
+      },
+    });
+
+    renderCard();
+
+    expect(await screen.findByText("历史发放")).toBeInTheDocument();
+    await waitFor(
+      () => expect(mockedInventory).toHaveBeenCalledTimes(2),
+      { timeout: 1_000 },
+    );
+  });
+
   it("does not dismiss a grant dialog while the write is pending", async () => {
     const pending = deferred<Awaited<ReturnType<typeof grantAvatarFrame>>>();
     mockedGrant.mockReturnValue(pending.promise);

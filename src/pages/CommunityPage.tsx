@@ -40,17 +40,23 @@ type PendingAction =
       target: AdminCircle;
       action: "disable" | "restore";
       expectedConfirmation: string;
-    } & { idempotencyKey: string })
+    } & { idempotencyKey: string; submittedPayload: string | null })
   | ({
       kind: "group";
       target: AdminOpenimGroup;
       action: AdminGroupOperationType;
       expectedConfirmation: string;
-    } & { idempotencyKey: string });
+    } & { idempotencyKey: string; submittedPayload: string | null });
 
 type PendingActionDraft =
-  | Omit<Extract<PendingAction, { kind: "circle" }>, "idempotencyKey">
-  | Omit<Extract<PendingAction, { kind: "group" }>, "idempotencyKey">;
+  | Omit<
+      Extract<PendingAction, { kind: "circle" }>,
+      "idempotencyKey" | "submittedPayload"
+    >
+  | Omit<
+      Extract<PendingAction, { kind: "group" }>,
+      "idempotencyKey" | "submittedPayload"
+    >;
 
 const CIRCLE_STATE: Record<
   CircleAdminState,
@@ -151,15 +157,30 @@ export function CommunityPage() {
     if (operation.isPending) return;
     setReason("");
     setConfirmation("");
-    setPendingAction({ ...action, idempotencyKey: crypto.randomUUID() });
+    setPendingAction({
+      ...action,
+      idempotencyKey: crypto.randomUUID(),
+      submittedPayload: null,
+    });
   };
 
-  const rotatePendingActionKey = () => {
-    setPendingAction((current) =>
-      current
-        ? { ...current, idempotencyKey: crypto.randomUUID() }
-        : current,
-    );
+  const submitPendingAction = () => {
+    if (!pendingAction) return;
+    const submittedPayload = JSON.stringify([
+      reason.trim(),
+      confirmation.trim(),
+    ]);
+    const action =
+      pendingAction.submittedPayload === null ||
+      pendingAction.submittedPayload === submittedPayload
+        ? { ...pendingAction, submittedPayload }
+        : {
+            ...pendingAction,
+            idempotencyKey: crypto.randomUUID(),
+            submittedPayload,
+          };
+    setPendingAction(action);
+    operation.mutate(action);
   };
 
   const circleColumns: ColumnsType<AdminCircle> = [
@@ -497,7 +518,7 @@ export function CommunityPage() {
         okText="确认提交"
         okButtonProps={{ danger: destructive, disabled: !canSubmit }}
         confirmLoading={operation.isPending}
-        onOk={() => pendingAction && operation.mutate(pendingAction)}
+        onOk={submitPendingAction}
         onCancel={() => {
           if (!operation.isPending) setPendingAction(null);
         }}
@@ -514,10 +535,7 @@ export function CommunityPage() {
               maxLength={500}
               disabled={operation.isPending}
               value={reason}
-              onChange={(event) => {
-                setReason(event.target.value);
-                rotatePendingActionKey();
-              }}
+              onChange={(event) => setReason(event.target.value)}
             />
           </div>
           <div>
@@ -533,10 +551,7 @@ export function CommunityPage() {
               maxLength={128}
               disabled={operation.isPending}
               value={confirmation}
-              onChange={(event) => {
-                setConfirmation(event.target.value);
-                rotatePendingActionKey();
-              }}
+              onChange={(event) => setConfirmation(event.target.value)}
             />
           </div>
         </Space>

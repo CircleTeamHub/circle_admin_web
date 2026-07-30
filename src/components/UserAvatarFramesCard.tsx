@@ -20,7 +20,7 @@ import {
   message,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   getUserAvatarFrames,
   grantAvatarFrame,
@@ -50,6 +50,8 @@ function sourceLabel(item: AvatarFrameInventoryItem): string {
 function newIdempotencyKey(): string {
   return globalThis.crypto.randomUUID();
 }
+
+const MAX_TIMER_DELAY_MS = 2_147_483_647;
 
 export function UserAvatarFramesCard({ userId }: { userId: string }) {
   const queryClient = useQueryClient();
@@ -90,6 +92,26 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
     () => inventory.data?.pages.flatMap((page) => page.grants.items) ?? [],
     [inventory.data],
   );
+
+  useEffect(() => {
+    const now = Date.now();
+    const nearestExpiry = grants.reduce<number | null>((nearest, grant) => {
+      if (grant.status !== "ACTIVE" || !grant.expiresAt) return nearest;
+      const expiry = new Date(grant.expiresAt).getTime();
+      if (!Number.isFinite(expiry)) return nearest;
+      return nearest === null || expiry < nearest ? expiry : nearest;
+    }, null);
+    if (nearestExpiry === null) return;
+
+    const delay = Math.min(
+      Math.max(nearestExpiry - now, 0) + 50,
+      MAX_TIMER_DELAY_MS,
+    );
+    const timer = window.setTimeout(() => {
+      void inventory.refetch();
+    }, delay);
+    return () => window.clearTimeout(timer);
+  }, [grants, inventory.refetch]);
 
   const refresh = async () => {
     await Promise.all([

@@ -295,7 +295,7 @@ export function DashboardPage() {
                 待处理队列
               </Space>
             }
-            extra={<Link to="/reports">进入举报审核</Link>}
+            extra={<Link to="/reports">审核用户举报</Link>}
           >
             {!dashboard.data ? (
               <SectionPending title="治理数据" />

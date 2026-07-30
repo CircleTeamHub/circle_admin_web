@@ -206,6 +206,42 @@ describe("CommunityPage", () => {
     );
   });
 
+  it("retains the idempotency key for normalization-equivalent edits", async () => {
+    mockedDisable
+      .mockRejectedValueOnce(new Error("response lost"))
+      .mockResolvedValueOnce({} as never);
+    renderPage();
+
+    fireEvent.click(
+      await screen.findByRole(
+        "button",
+        { name: "停用 摄影圈" },
+        { timeout: 10_000 },
+      ),
+    );
+    fireEvent.change(screen.getByLabelText("操作原因"), {
+      target: { value: "存在违规内容" },
+    });
+    fireEvent.change(screen.getByLabelText("确认文字"), {
+      target: { value: "摄影圈" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "确认提交" }));
+    await waitFor(() => expect(mockedDisable).toHaveBeenCalledTimes(1));
+
+    fireEvent.change(screen.getByLabelText("操作原因"), {
+      target: { value: "  存在违规内容  " },
+    });
+    fireEvent.change(screen.getByLabelText("确认文字"), {
+      target: { value: " 摄影圈 " },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "确认提交" }));
+
+    await waitFor(() => expect(mockedDisable).toHaveBeenCalledTimes(2));
+    expect(mockedDisable.mock.calls[1]?.[3]).toBe(
+      mockedDisable.mock.calls[0]?.[3],
+    );
+  });
+
   it("keeps row actions locked until the authoritative refetch completes", async () => {
     const refetch = deferred<Awaited<ReturnType<typeof listAdminCircles>>>();
     renderPage();
