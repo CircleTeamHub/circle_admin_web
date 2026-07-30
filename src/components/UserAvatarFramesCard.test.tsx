@@ -101,11 +101,12 @@ function renderCard() {
       mutations: { retry: false },
     },
   });
-  return render(
+  const view = render(
     <QueryClientProvider client={client}>
       <UserAvatarFramesCard userId="user-1" />
     </QueryClientProvider>,
   );
+  return { client, ...view };
 }
 
 describe("UserAvatarFramesCard", () => {
@@ -152,6 +153,22 @@ describe("UserAvatarFramesCard", () => {
 
     pending.resolve(inventoryResponse);
     expect(await screen.findByText("不展示头像框")).toBeInTheDocument();
+  });
+
+  it("disables grants when a cached asset catalog refresh fails", async () => {
+    const { client } = renderCard();
+    const grantButton = await screen.findByRole("button", {
+      name: "发放头像框",
+    });
+    await waitFor(() => expect(grantButton).toBeEnabled());
+
+    mockedAssets.mockRejectedValueOnce(new Error("catalog unavailable"));
+    await client.refetchQueries({
+      queryKey: ["admin-avatar-frame-assets"],
+    });
+
+    await waitFor(() => expect(grantButton).toBeDisabled());
+    expect(screen.getByText("头像框目录加载失败")).toBeInTheDocument();
   });
 
   it("refetches when the nearest active grant expires", async () => {
@@ -370,6 +387,46 @@ describe("UserAvatarFramesCard", () => {
     expect(cancel).toBeDisabled();
     expect(screen.getByLabelText("撤销原因")).toBeDisabled();
     expect(screen.getByText("撤销 钻石头像框 授权")).toBeInTheDocument();
+  });
+
+  it("disables an open revoke dialog after the grant expires", async () => {
+    const activeInventory = {
+      ...inventoryResponse,
+      grants: {
+        ...inventoryResponse.grants,
+        items: [grantRecord],
+      },
+    };
+    mockedInventory.mockResolvedValue(activeInventory);
+    const { client } = renderCard();
+
+    fireEvent.click(await screen.findByRole("button", { name: /撤\s*销/ }));
+    fireEvent.change(screen.getByLabelText("撤销原因"), {
+      target: { value: "授权错误" },
+    });
+    client.setQueryData(["admin-avatar-frames", "user-1"], {
+      pages: [
+        {
+          ...activeInventory,
+          grants: {
+            ...activeInventory.grants,
+            items: [{ ...grantRecord, status: "EXPIRED" as const }],
+          },
+        },
+      ],
+      pageParams: [undefined],
+    });
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "确认撤销" }),
+      ).toBeDisabled(),
+    );
+    expect(
+      screen.getByText("该授权状态已变化，不能再撤销"),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "确认撤销" }));
+    expect(mockedRevoke).not.toHaveBeenCalled();
   });
 
   it("preserves the submitted revoke reason after an ambiguous failure", async () => {

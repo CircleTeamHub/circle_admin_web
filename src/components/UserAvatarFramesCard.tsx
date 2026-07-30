@@ -98,6 +98,13 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
     () => inventory.data?.pages.flatMap((page) => page.grants.items) ?? [],
     [inventory.data],
   );
+  const latestRevokeTarget = revokeTarget
+    ? grants.find((grant) => grant.id === revokeTarget.id)
+    : undefined;
+  const revokeTargetUnavailable =
+    revokeTarget !== null &&
+    (!latestRevokeTarget || latestRevokeTarget.status !== "ACTIVE");
+  const assetCatalogUnavailable = assets.isError || assets.isFetching;
 
   useEffect(() => {
     const now = Date.now();
@@ -174,8 +181,10 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
 
   const revokeMutation = useMutation({
     mutationFn: (reason: string) => {
-      if (!revokeTarget) throw new Error("未选择发放记录");
-      return revokeAvatarFrameGrant(revokeTarget.id, {
+      if (!latestRevokeTarget || latestRevokeTarget.status !== "ACTIVE") {
+        throw new Error("该头像框授权已不可撤销");
+      }
+      return revokeAvatarFrameGrant(latestRevokeTarget.id, {
         reason,
       });
     },
@@ -279,7 +288,11 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
         extra={
           <Button
             type="primary"
-            disabled={!assets.data?.length || inventoryAuthorityError}
+            disabled={
+              !assets.data?.length ||
+              assetCatalogUnavailable ||
+              inventoryAuthorityError
+            }
             onClick={() => {
               setGrantRequestKey(newIdempotencyKey());
               setGrantOpen(true);
@@ -393,6 +406,7 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
         cancelButtonProps={{ disabled: grantMutation.isPending }}
         okButtonProps={{
           disabled:
+            assetCatalogUnavailable ||
             !grantRequestKey ||
             !frameId ||
             grantReason.trim().length === 0 ||
@@ -405,6 +419,7 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
           resetGrantDraft();
         }}
         onOk={() => {
+          if (assetCatalogUnavailable) return;
           const expiration = expiresAt ? new Date(expiresAt) : null;
           if (
             expiration &&
@@ -451,7 +466,7 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
             aria-label="选择头像框"
             placeholder="选择头像框"
             loading={assets.isLoading}
-            disabled={grantMutation.isPending}
+            disabled={grantMutation.isPending || assetCatalogUnavailable}
             value={frameId || undefined}
             options={(assets.data ?? []).map((asset) => ({
               value: asset.id,
@@ -491,6 +506,7 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
         okButtonProps={{
           danger: true,
           disabled:
+            revokeTargetUnavailable ||
             revokeReason.trim().length === 0 ||
             revokeReason.trim().length > 500,
         }}
@@ -511,12 +527,21 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
           setRevokeSubmittedReason(null);
         }}
         onOk={() => {
+          if (revokeTargetUnavailable) return;
           const reason = revokeSubmittedReason ?? revokeReason.trim();
           if (!revokeSubmittedReason) setRevokeSubmittedReason(reason);
           revokeMutation.mutate(reason);
         }}
         destroyOnHidden
       >
+        {revokeTargetUnavailable ? (
+          <Alert
+            type="warning"
+            showIcon
+            message="该授权状态已变化，不能再撤销"
+            style={{ marginBottom: 12 }}
+          />
+        ) : null}
         <Input.TextArea
           aria-label="撤销原因"
           placeholder="客服工单号或撤销原因"

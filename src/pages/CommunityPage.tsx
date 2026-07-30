@@ -82,6 +82,43 @@ function isManageableGroupStatus(status: number) {
   return status === 0 || status === 3;
 }
 
+function isPendingActionStale(
+  action: PendingAction,
+  circles: AdminCircle[],
+  groups: AdminOpenimGroup[],
+) {
+  if (action.kind === "circle") {
+    const target = circles.find((circle) => circle.id === action.target.id);
+    if (!target) return true;
+    if (action.action === "disable") {
+      return (
+        target.deleted ||
+        ["DISABLING", "RESTORING", "DISMISSED"].includes(target.adminState)
+      );
+    }
+    return (
+      !target.deleted ||
+      !["DISABLED", "SYNC_FAILED"].includes(target.adminState) ||
+      !target.adminDisabledAt ||
+      !target.adminDisabledBy ||
+      !target.adminDisableReason
+    );
+  }
+  const target = groups.find(
+    (group) => group.groupId === action.target.groupId,
+  );
+  if (!target) return true;
+  const busy =
+    target.pendingOperation &&
+    ["PENDING", "PROCESSING"].includes(target.pendingOperation.status);
+  return (
+    !isManageableGroupStatus(target.status) ||
+    Boolean(busy) ||
+    (action.action === "MUTE" && target.muted) ||
+    (action.action === "UNMUTE" && !target.muted)
+  );
+}
+
 export function CommunityPage() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("circles");
@@ -120,6 +157,13 @@ export function CommunityPage() {
     enabled: activeTab === "groups",
     refetchInterval: activeTab === "groups" ? 10_000 : false,
   });
+  const pendingActionStale = pendingAction
+    ? isPendingActionStale(
+        pendingAction,
+        circles.data?.items ?? [],
+        groups.data?.items ?? [],
+      )
+    : false;
 
   const operation = useMutation({
     mutationFn: async (action: PendingAction) => {
@@ -182,6 +226,7 @@ export function CommunityPage() {
     ) {
       return;
     }
+    if (pendingActionStale) return;
     const submittedPayload = JSON.stringify([
       reason.trim(),
       confirmation.trim(),
@@ -381,6 +426,7 @@ export function CommunityPage() {
               disabled={
                 !manageable ||
                 Boolean(busy) ||
+                Boolean(group.linkedCircle) ||
                 operation.isPending ||
                 groups.isError
               }
@@ -438,6 +484,7 @@ export function CommunityPage() {
     : false;
   const canSubmit =
     !pendingActionQueryError &&
+    !pendingActionStale &&
     reason.trim().length >= 2 &&
     confirmation.trim() === pendingAction?.expectedConfirmation;
 
@@ -578,6 +625,13 @@ export function CommunityPage() {
               type="error"
               showIcon
               title="列表刷新失败，请重试成功后再提交"
+            />
+          ) : null}
+          {pendingActionStale && !pendingActionQueryError ? (
+            <Alert
+              type="warning"
+              showIcon
+              title="目标状态已变化，请关闭窗口后按最新状态重新操作"
             />
           ) : null}
           <div>

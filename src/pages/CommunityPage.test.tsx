@@ -296,6 +296,51 @@ describe("CommunityPage", () => {
     expect(screen.getByText("圈子列表加载失败")).toBeInTheDocument();
   });
 
+  it("disables an open confirmation after polling changes the circle state", async () => {
+    const { client } = renderPage();
+    fireEvent.click(
+      await screen.findByRole("button", { name: "停用 摄影圈" }),
+    );
+    fireEvent.change(screen.getByLabelText("操作原因"), {
+      target: { value: "存在违规内容" },
+    });
+    fireEvent.change(screen.getByLabelText("确认文字"), {
+      target: { value: "摄影圈" },
+    });
+
+    const queryKey = ["adminCommunity", "circles", 1, "", undefined];
+    const current =
+      client.getQueryData<Awaited<ReturnType<typeof listAdminCircles>>>(
+        queryKey,
+      )!;
+    client.setQueryData(queryKey, {
+        items: [
+          {
+            ...current.items[0],
+            deleted: true,
+            adminState: "DISABLED",
+            adminDisabledAt: "2026-07-30T00:00:00.000Z",
+            adminDisabledBy: "admin-2",
+            adminDisableReason: "其他管理员已停用",
+          },
+        ],
+        total: 1,
+        page: 1,
+        limit: 20,
+      });
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "确认提交" }),
+      ).toBeDisabled(),
+    );
+    expect(
+      screen.getByText("目标状态已变化，请关闭窗口后按最新状态重新操作"),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "确认提交" }));
+    expect(mockedDisable).not.toHaveBeenCalled();
+  });
+
   it("disables group writes after a background list refresh fails", async () => {
     const { client } = renderPage();
     fireEvent.click(await screen.findByText("全部群聊"));
