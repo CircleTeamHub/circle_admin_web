@@ -257,11 +257,10 @@ describe("UserAvatarFramesCard", () => {
         ],
       },
     });
-    await waitFor(() =>
-      expect(
-        screen.getByRole("button", { name: /撤\s*销/ }),
-      ).toBeDisabled(),
-    );
+    expect(await screen.findByText("已撤销")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /撤\s*销/ }),
+    ).toBeDisabled();
   });
 
   it("rotates the grant key when a failed request payload is edited", async () => {
