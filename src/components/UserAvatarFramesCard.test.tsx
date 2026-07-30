@@ -201,4 +201,44 @@ describe("UserAvatarFramesCard", () => {
     expect(cancel).toBeDisabled();
     expect(screen.getByText("撤销 钻石头像框 授权")).toBeInTheDocument();
   });
+
+  it("rotates the grant key when a failed request payload is edited", async () => {
+    mockedGrant
+      .mockRejectedValueOnce(new Error("response lost"))
+      .mockResolvedValueOnce({ replayed: false, grant: grantRecord });
+    renderCard();
+
+    const grantButton = await screen.findByRole("button", {
+      name: "发放头像框",
+    });
+    await waitFor(() => expect(grantButton).toBeEnabled());
+    fireEvent.click(grantButton);
+    fireEvent.mouseDown(screen.getByLabelText("选择头像框"));
+    fireEvent.click(
+      await screen.findByText("钻石头像框", {
+        selector: ".ant-select-item-option-content",
+      }),
+    );
+    fireEvent.change(screen.getByLabelText("发放原因"), {
+      target: { value: "第一次原因" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "确认发放" }));
+    await waitFor(() => expect(mockedGrant).toHaveBeenCalledTimes(1));
+    await expect(mockedGrant.mock.results[0]?.value).rejects.toThrow(
+      "response lost",
+    );
+    await waitFor(() =>
+      expect(screen.getByLabelText("发放原因")).toBeEnabled(),
+    );
+
+    fireEvent.change(screen.getByLabelText("发放原因"), {
+      target: { value: "修改后的原因" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "确认发放" }));
+
+    await waitFor(() => expect(mockedGrant).toHaveBeenCalledTimes(2));
+    expect(mockedGrant.mock.calls[1]?.[1].idempotencyKey).not.toBe(
+      mockedGrant.mock.calls[0]?.[1].idempotencyKey,
+    );
+  });
 });

@@ -28,6 +28,14 @@ const mockedListGroups = vi.mocked(listAdminGroups);
 const mockedGroupOperation = vi.mocked(requestGroupOperation);
 const mockedRestore = vi.mocked(restoreCircle);
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolver) => {
+    resolve = resolver;
+  });
+  return { promise, resolve };
+}
+
 function renderPage() {
   const client = new QueryClient({
     defaultOptions: {
@@ -162,6 +170,75 @@ describe("CommunityPage", () => {
     await waitFor(() => expect(mockedDisable).toHaveBeenCalledTimes(2));
     expect(mockedDisable.mock.calls[1]?.[3]).toBe(
       mockedDisable.mock.calls[0]?.[3],
+    );
+  });
+
+  it("rotates the idempotency key when a failed action payload is edited", async () => {
+    mockedDisable
+      .mockRejectedValueOnce(new Error("response lost"))
+      .mockResolvedValueOnce({} as never);
+    renderPage();
+
+    fireEvent.click(
+      await screen.findByRole(
+        "button",
+        { name: "停用 摄影圈" },
+        { timeout: 10_000 },
+      ),
+    );
+    fireEvent.change(screen.getByLabelText("操作原因"), {
+      target: { value: "第一次原因" },
+    });
+    fireEvent.change(screen.getByLabelText("确认文字"), {
+      target: { value: "摄影圈" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "确认提交" }));
+    await waitFor(() => expect(mockedDisable).toHaveBeenCalledTimes(1));
+
+    fireEvent.change(screen.getByLabelText("操作原因"), {
+      target: { value: "修改后的原因" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "确认提交" }));
+
+    await waitFor(() => expect(mockedDisable).toHaveBeenCalledTimes(2));
+    expect(mockedDisable.mock.calls[1]?.[3]).not.toBe(
+      mockedDisable.mock.calls[0]?.[3],
+    );
+  });
+
+  it("keeps row actions locked until the authoritative refetch completes", async () => {
+    const refetch = deferred<Awaited<ReturnType<typeof listAdminCircles>>>();
+    renderPage();
+
+    const disable = await screen.findByRole(
+      "button",
+      { name: "停用 摄影圈" },
+      { timeout: 10_000 },
+    );
+    mockedListCircles.mockReturnValueOnce(refetch.promise);
+    fireEvent.click(disable);
+    fireEvent.change(screen.getByLabelText("操作原因"), {
+      target: { value: "存在违规内容" },
+    });
+    fireEvent.change(screen.getByLabelText("确认文字"), {
+      target: { value: "摄影圈" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "确认提交" }));
+
+    await waitFor(() => expect(mockedListCircles).toHaveBeenCalledTimes(2));
+    expect(
+      screen.getByRole("button", { name: "停用 摄影圈" }),
+    ).toBeDisabled();
+    refetch.resolve({
+      items: [],
+      total: 0,
+      page: 1,
+      limit: 20,
+    });
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", { name: "停用 摄影圈" }),
+      ).not.toBeInTheDocument(),
     );
   });
 

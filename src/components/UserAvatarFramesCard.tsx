@@ -61,6 +61,10 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
   const [revokeTarget, setRevokeTarget] = useState<AvatarFrameGrant | null>(null);
   const [revokeReason, setRevokeReason] = useState("");
 
+  const rotateGrantRequestKey = () => {
+    setGrantRequestKey(newIdempotencyKey());
+  };
+
   const assets = useQuery({
     queryKey: ["admin-avatar-frame-assets"],
     queryFn: listAvatarFrameAssets,
@@ -106,8 +110,9 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
       message.success(replayed ? "该发放请求已处理" : "头像框已发放");
       await refresh();
     },
-    onError: (error) =>
-      message.error(getErrorMessage(error, "头像框发放失败")),
+    onError: (error) => {
+      message.error(getErrorMessage(error, "头像框发放失败"));
+    },
   });
 
   const revokeMutation = useMutation({
@@ -123,8 +128,9 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
       message.success(replayed ? "该撤销请求已处理" : "头像框授权已撤销");
       await refresh();
     },
-    onError: (error) =>
-      message.error(getErrorMessage(error, "头像框撤销失败")),
+    onError: (error) => {
+      message.error(getErrorMessage(error, "头像框撤销失败"));
+    },
   });
 
   const inventoryColumns: ColumnsType<AvatarFrameInventoryItem> = [
@@ -306,12 +312,16 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
             aria-label="选择头像框"
             placeholder="选择头像框"
             loading={assets.isLoading}
+            disabled={grantMutation.isPending}
             value={frameId || undefined}
             options={(assets.data ?? []).map((asset) => ({
               value: asset.id,
               label: asset.name,
             }))}
-            onChange={setFrameId}
+            onChange={(value) => {
+              setFrameId(value);
+              rotateGrantRequestKey();
+            }}
             style={{ width: "100%" }}
           />
           <label>
@@ -319,8 +329,12 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
             <Input
               aria-label="到期时间"
               type="datetime-local"
+              disabled={grantMutation.isPending}
               value={expiresAt}
-              onChange={(event) => setExpiresAt(event.target.value)}
+              onChange={(event) => {
+                setExpiresAt(event.target.value);
+                rotateGrantRequestKey();
+              }}
             />
           </label>
           <Input.TextArea
@@ -329,8 +343,12 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
             rows={3}
             maxLength={500}
             showCount
+            disabled={grantMutation.isPending}
             value={grantReason}
-            onChange={(event) => setGrantReason(event.target.value)}
+            onChange={(event) => {
+              setGrantReason(event.target.value);
+              rotateGrantRequestKey();
+            }}
           />
         </Space>
       </Modal>

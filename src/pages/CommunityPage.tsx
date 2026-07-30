@@ -148,9 +148,18 @@ export function CommunityPage() {
   });
 
   const openAction = (action: PendingActionDraft) => {
+    if (operation.isPending) return;
     setReason("");
     setConfirmation("");
     setPendingAction({ ...action, idempotencyKey: crypto.randomUUID() });
+  };
+
+  const rotatePendingActionKey = () => {
+    setPendingAction((current) =>
+      current
+        ? { ...current, idempotencyKey: crypto.randomUUID() }
+        : current,
+    );
   };
 
   const circleColumns: ColumnsType<AdminCircle> = [
@@ -227,7 +236,7 @@ export function CommunityPage() {
           <Button
             icon={<UndoOutlined />}
             aria-label={`恢复 ${circle.name}`}
-            disabled={busy}
+            disabled={busy || operation.isPending}
             onClick={() =>
               openAction({
                 kind: "circle",
@@ -244,7 +253,7 @@ export function CommunityPage() {
             danger
             icon={<StopOutlined />}
             aria-label={`停用 ${circle.name}`}
-            disabled={busy}
+            disabled={busy || operation.isPending}
             onClick={() =>
               openAction({
                 kind: "circle",
@@ -318,7 +327,7 @@ export function CommunityPage() {
         return (
           <Space>
             <Button
-              disabled={Boolean(busy)}
+              disabled={Boolean(busy) || operation.isPending}
               aria-label={`${operationLabel(muteAction)} ${group.name}`}
               onClick={() =>
                 openAction({
@@ -333,7 +342,7 @@ export function CommunityPage() {
             </Button>
             <Button
               danger
-              disabled={Boolean(busy)}
+              disabled={Boolean(busy) || operation.isPending}
               aria-label={`解散 ${group.name}`}
               onClick={() =>
                 openAction({
@@ -503,8 +512,12 @@ export function CommunityPage() {
               aria-label="操作原因"
               rows={3}
               maxLength={500}
+              disabled={operation.isPending}
               value={reason}
-              onChange={(event) => setReason(event.target.value)}
+              onChange={(event) => {
+                setReason(event.target.value);
+                rotatePendingActionKey();
+              }}
             />
           </div>
           <div>
@@ -518,8 +531,12 @@ export function CommunityPage() {
             <Input
               aria-label="确认文字"
               maxLength={128}
+              disabled={operation.isPending}
               value={confirmation}
-              onChange={(event) => setConfirmation(event.target.value)}
+              onChange={(event) => {
+                setConfirmation(event.target.value);
+                rotatePendingActionKey();
+              }}
             />
           </div>
         </Space>
