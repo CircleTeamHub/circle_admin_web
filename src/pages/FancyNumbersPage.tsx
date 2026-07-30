@@ -318,11 +318,16 @@ export function FancyNumbersPage() {
             if (writePending) return;
             draggedIdRef.current = record.id;
           },
-          onDragOver: (event) => event.preventDefault(),
+          onDragEnd: () => {
+            draggedIdRef.current = null;
+          },
+          onDragOver: (event) => {
+            if (draggedIdRef.current) event.preventDefault();
+          },
           onDrop: () => {
-            if (writePending) return;
             const draggedId = draggedIdRef.current;
             draggedIdRef.current = null;
+            if (writePending) return;
             if (!draggedId || draggedId === record.id) return;
             const fromIndex = orderedItems.findIndex(
               (item) => item.id === draggedId,

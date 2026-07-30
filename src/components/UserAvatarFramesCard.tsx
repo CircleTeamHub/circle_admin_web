@@ -273,6 +273,10 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
         okText="确认发放"
         cancelText="取消"
         confirmLoading={grantMutation.isPending}
+        closable={!grantMutation.isPending}
+        mask={{ closable: !grantMutation.isPending }}
+        keyboard={!grantMutation.isPending}
+        cancelButtonProps={{ disabled: grantMutation.isPending }}
         okButtonProps={{
           disabled:
             !grantRequestKey ||
@@ -282,6 +286,7 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
             (!!expiresAt && new Date(expiresAt).getTime() <= Date.now()),
         }}
         onCancel={() => {
+          if (grantMutation.isPending) return;
           setGrantOpen(false);
           setGrantRequestKey("");
         }}
@@ -342,7 +347,12 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
             revokeReason.trim().length > 500,
         }}
         confirmLoading={revokeMutation.isPending}
+        closable={!revokeMutation.isPending}
+        mask={{ closable: !revokeMutation.isPending }}
+        keyboard={!revokeMutation.isPending}
+        cancelButtonProps={{ disabled: revokeMutation.isPending }}
         onCancel={() => {
+          if (revokeMutation.isPending) return;
           setRevokeTarget(null);
           setRevokeReason("");
         }}

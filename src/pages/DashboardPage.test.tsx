@@ -1,5 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getDashboard, type AdminDashboard } from "../api/dashboard";
@@ -148,5 +154,31 @@ describe("DashboardPage", () => {
     expect(screen.queryByText("数据库异常")).not.toBeInTheDocument();
     expect(screen.queryByText("Redis 异常")).not.toBeInTheDocument();
     expect(screen.queryByText("OpenIM 异常")).not.toBeInTheDocument();
+  });
+
+  it("keeps headline metrics unknown when their source sections are unavailable", async () => {
+    mockedGetDashboard.mockResolvedValue({
+      ...dashboard,
+      sections: {
+        ...dashboard.sections,
+        users: { status: "error", data: null },
+        commerce: { status: "error", data: null },
+        moderation: { status: "error", data: null },
+        system: { status: "error", data: null },
+      },
+    });
+
+    renderPage();
+
+    for (const title of [
+      "用户总数",
+      "活跃用户",
+      "积分消费",
+      "待处理事项",
+    ]) {
+      const card = (await screen.findByText(title)).closest(".ant-statistic");
+      expect(card).not.toBeNull();
+      expect(within(card as HTMLElement).getByText("--")).toBeInTheDocument();
+    }
   });
 });

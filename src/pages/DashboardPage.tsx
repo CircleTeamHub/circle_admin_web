@@ -94,7 +94,9 @@ export function DashboardPage() {
   const moderation = valueOf(dashboard.data?.sections.moderation);
   const system = valueOf(dashboard.data?.sections.system);
   const pendingTotal =
-    (moderation?.pendingTotal ?? 0) + (system?.failed ?? 0);
+    moderation && system
+      ? moderation.pendingTotal + system.failed
+      : null;
 
   return (
     <Space orientation="vertical" size={16} className="page-stack">
@@ -134,12 +136,14 @@ export function DashboardPage() {
           <Card loading={dashboard.isLoading}>
             <Statistic
               title="用户总数"
-              value={users?.totalUsers ?? 0}
+              value={users?.totalUsers ?? "--"}
               prefix={<TeamOutlined />}
               suffix={
-                <Typography.Text type="success">
-                  +{users?.newUsers ?? 0}
-                </Typography.Text>
+                users ? (
+                  <Typography.Text type="success">
+                    +{users.newUsers}
+                  </Typography.Text>
+                ) : null
               }
             />
           </Card>
@@ -148,12 +152,14 @@ export function DashboardPage() {
           <Card loading={dashboard.isLoading}>
             <Statistic
               title="活跃用户"
-              value={users?.activeUsers ?? 0}
+              value={users?.activeUsers ?? "--"}
               prefix={<RiseOutlined />}
               suffix={
                 users?.totalUsers
                   ? `${((users.activeUsers / users.totalUsers) * 100).toFixed(1)}%`
-                  : "0%"
+                  : users
+                    ? "0%"
+                    : null
               }
             />
           </Card>
@@ -162,7 +168,7 @@ export function DashboardPage() {
           <Card loading={dashboard.isLoading}>
             <Statistic
               title="积分消费"
-              value={commerce?.pointSpend ?? 0}
+              value={commerce?.pointSpend ?? "--"}
               prefix={<ShopOutlined />}
             />
           </Card>
@@ -171,10 +177,13 @@ export function DashboardPage() {
           <Card loading={dashboard.isLoading}>
             <Statistic
               title="待处理事项"
-              value={pendingTotal}
+              value={pendingTotal ?? "--"}
               prefix={<AlertOutlined />}
               styles={{
-                content: pendingTotal > 0 ? { color: "#cf1322" } : undefined,
+                content:
+                  pendingTotal !== null && pendingTotal > 0
+                    ? { color: "#cf1322" }
+                    : undefined,
               }}
             />
           </Card>

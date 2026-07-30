@@ -177,4 +177,20 @@ describe("FancyNumbersPage", () => {
       expect(screen.queryByText("AB12C3")).not.toBeInTheDocument(),
     );
   });
+
+  it("clears a canceled row drag before accepting any later drop", async () => {
+    renderPage();
+
+    const firstRow = (await screen.findByText("AB12C3")).closest("tr");
+    const secondRow = screen.getByText("XY98Z7").closest("tr");
+    expect(firstRow).not.toBeNull();
+    expect(secondRow).not.toBeNull();
+
+    fireEvent.dragStart(firstRow as HTMLElement);
+    fireEvent.dragEnd(firstRow as HTMLElement);
+    fireEvent.dragOver(secondRow as HTMLElement);
+    fireEvent.drop(secondRow as HTMLElement);
+
+    expect(mockedReorder).not.toHaveBeenCalled();
+  });
 });
