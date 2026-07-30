@@ -202,6 +202,35 @@ describe("UserAvatarFramesCard", () => {
     expect(screen.getByText("撤销 钻石头像框 授权")).toBeInTheDocument();
   });
 
+  it("clears a canceled grant draft before reopening the dialog", async () => {
+    renderCard();
+
+    const grantButton = await screen.findByRole("button", {
+      name: "发放头像框",
+    });
+    await waitFor(() => expect(grantButton).toBeEnabled());
+    fireEvent.click(grantButton);
+    fireEvent.mouseDown(screen.getByLabelText("选择头像框"));
+    fireEvent.click(
+      await screen.findByText("钻石头像框", {
+        selector: ".ant-select-item-option-content",
+      }),
+    );
+    fireEvent.change(screen.getByLabelText("到期时间"), {
+      target: { value: "2027-01-01T00:00" },
+    });
+    fireEvent.change(screen.getByLabelText("发放原因"), {
+      target: { value: "取消的草稿" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /取\s*消/ }));
+    fireEvent.click(grantButton);
+
+    expect(screen.getByLabelText("选择头像框")).toHaveValue("");
+    expect(screen.getByLabelText("到期时间")).toHaveValue("");
+    expect(screen.getByLabelText("发放原因")).toHaveValue("");
+  });
+
   it("keeps revoke actions locked until the inventory refresh completes", async () => {
     const activeInventory = {
       ...inventoryResponse,

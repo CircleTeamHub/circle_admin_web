@@ -194,7 +194,9 @@ export function DashboardPage() {
       <Row gutter={[16, 16]}>
         <Col xs={24} xl={16}>
           <Card title="新增用户趋势" loading={dashboard.isLoading}>
-            {dashboard.data?.sections.users.status === "error" ? (
+            {!dashboard.data ? (
+              <SectionPending title="用户数据" />
+            ) : dashboard.data.sections.users.status === "error" ? (
               <SectionUnavailable title="用户数据" />
             ) : (
               <SignupTrend values={users?.signupTrend ?? []} />
@@ -203,7 +205,9 @@ export function DashboardPage() {
         </Col>
         <Col xs={24} xl={8}>
           <Card title="社区概况" loading={dashboard.isLoading}>
-            {dashboard.data?.sections.community.status === "error" ? (
+            {!dashboard.data ? (
+              <SectionPending title="社区数据" />
+            ) : dashboard.data.sections.community.status === "error" ? (
               <SectionUnavailable title="社区数据" />
             ) : (
               <Descriptions column={1} size="small">
@@ -229,7 +233,9 @@ export function DashboardPage() {
       </Row>
 
       <Typography.Title level={4}>商城经营</Typography.Title>
-      {dashboard.data?.sections.commerce.status === "error" ? (
+      {!dashboard.data ? (
+        <SectionPending title="商城数据" />
+      ) : dashboard.data.sections.commerce.status === "error" ? (
         <SectionUnavailable title="商城数据" />
       ) : (
         <Row gutter={[16, 16]}>
@@ -290,7 +296,9 @@ export function DashboardPage() {
             }
             extra={<Link to="/reports">进入举报审核</Link>}
           >
-            {dashboard.data?.sections.moderation.status === "error" ? (
+            {!dashboard.data ? (
+              <SectionPending title="治理数据" />
+            ) : dashboard.data.sections.moderation.status === "error" ? (
               <SectionUnavailable title="治理数据" />
             ) : (
               <Descriptions column={1} size="small">

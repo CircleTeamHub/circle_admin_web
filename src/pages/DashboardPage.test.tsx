@@ -154,6 +154,13 @@ describe("DashboardPage", () => {
     expect(screen.queryByText("数据库异常")).not.toBeInTheDocument();
     expect(screen.queryByText("Redis 异常")).not.toBeInTheDocument();
     expect(screen.queryByText("OpenIM 异常")).not.toBeInTheDocument();
+    expect(screen.getByText("用户数据尚未获取")).toBeInTheDocument();
+    expect(screen.getByText("社区数据尚未获取")).toBeInTheDocument();
+    expect(screen.getByText("商城数据尚未获取")).toBeInTheDocument();
+    expect(screen.getByText("治理数据尚未获取")).toBeInTheDocument();
+    expect(screen.queryByText("圈子总数")).not.toBeInTheDocument();
+    expect(screen.queryByText("有效会员")).not.toBeInTheDocument();
+    expect(screen.queryByText("待处理总计")).not.toBeInTheDocument();
   });
 
   it("keeps headline metrics unknown when their source sections are unavailable", async () => {

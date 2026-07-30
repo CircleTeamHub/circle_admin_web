@@ -65,6 +65,13 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
     setGrantRequestKey(newIdempotencyKey());
   };
 
+  const resetGrantDraft = () => {
+    setFrameId("");
+    setExpiresAt("");
+    setGrantReason("");
+    setGrantRequestKey("");
+  };
+
   const assets = useQuery({
     queryKey: ["admin-avatar-frame-assets"],
     queryFn: listAvatarFrameAssets,
@@ -103,10 +110,7 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
       }),
     onSuccess: async ({ replayed }) => {
       setGrantOpen(false);
-      setFrameId("");
-      setExpiresAt("");
-      setGrantReason("");
-      setGrantRequestKey("");
+      resetGrantDraft();
       message.success(replayed ? "该发放请求已处理" : "头像框已发放");
       await refresh();
     },
@@ -294,7 +298,7 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
         onCancel={() => {
           if (grantMutation.isPending) return;
           setGrantOpen(false);
-          setGrantRequestKey("");
+          resetGrantDraft();
         }}
         onOk={() => grantMutation.mutate()}
         destroyOnHidden
