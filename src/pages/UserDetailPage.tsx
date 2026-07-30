@@ -18,6 +18,7 @@ import { getUserDetail, listUserAuditLogs } from "../api/users";
 import { PageError } from "../components/PageError";
 import { SensitiveFieldValue } from "../components/SensitiveFieldValue";
 import { UserStatusActions } from "../components/UserStatusActions";
+import { UserAvatarFramesCard } from "../components/UserAvatarFramesCard";
 import type { AdminAuditLog, AuthUser, SensitiveField } from "../types";
 import { formatDateTime } from "../utils/format";
 
@@ -194,6 +195,8 @@ export function UserDetailPage({ currentUser }: { currentUser: AuthUser }) {
           ))}
         </Row>
       </Card>
+
+      <UserAvatarFramesCard key={`avatar-frames:${userId}`} userId={userId} />
 
       <Card title="危险操作">
         <UserStatusActions

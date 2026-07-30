@@ -110,26 +110,33 @@ describe("UserDetailPage", () => {
     ]);
   });
 
-  it("renders the full operational view, audits, and VIP placeholder", async () => {
-    renderPage();
+  it(
+    "renders the full operational view, audits, and VIP placeholder",
+    async () => {
+      renderPage();
 
-    expect((await screen.findAllByText("jim-1001")).length).toBeGreaterThan(0);
-    expect(screen.getByText("账户资料")).toBeInTheDocument();
-    expect(screen.getByText("联系信息")).toBeInTheDocument();
-    expect(screen.getByText("安全与同步")).toBeInTheDocument();
-    expect(screen.getByText("业务概览")).toBeInTheDocument();
-    expect(screen.getByText("88")).toBeInTheDocument();
-    expect(screen.getByText("120")).toBeInTheDocument();
-    expect(screen.getByText("j***@example.com")).toBeInTheDocument();
-    expect(screen.getByText("USER_SENSITIVE_FIELD_VIEWED")).toBeInTheDocument();
-    expect(screen.getByText("新的月度 VIP 系统设计中")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /VIP|升级|开通/ })).not.toBeInTheDocument();
-    expect(mockedAudit).toHaveBeenCalledWith("u1", 20);
-    expect(screen.getByRole("link", { name: "返回用户列表" })).toHaveAttribute(
-      "href",
-      "/users",
-    );
-  });
+      expect((await screen.findAllByText("jim-1001")).length).toBeGreaterThan(0);
+      expect(screen.getByText("账户资料")).toBeInTheDocument();
+      expect(screen.getByText("联系信息")).toBeInTheDocument();
+      expect(screen.getByText("安全与同步")).toBeInTheDocument();
+      expect(screen.getByText("业务概览")).toBeInTheDocument();
+      expect(screen.getByText("88")).toBeInTheDocument();
+      expect(screen.getByText("120")).toBeInTheDocument();
+      expect(screen.getByText("j***@example.com")).toBeInTheDocument();
+      expect(
+        screen.getByText("USER_SENSITIVE_FIELD_VIEWED"),
+      ).toBeInTheDocument();
+      expect(screen.getByText("新的月度 VIP 系统设计中")).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /VIP|升级|开通/ }),
+      ).not.toBeInTheDocument();
+      expect(mockedAudit).toHaveBeenCalledWith("u1", 20);
+      expect(screen.getByRole("link", { name: "返回用户列表" })).toHaveAttribute(
+        "href",
+        "/users",
+      );
+    },
+  );
 
   it("shows a loading state while detail is pending", () => {
     mockedDetail.mockReturnValue(new Promise(() => {}));

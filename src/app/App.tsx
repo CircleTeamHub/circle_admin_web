@@ -1,12 +1,19 @@
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { ConfigProvider, Spin } from "antd";
 import zhCN from "antd/locale/zh_CN";
+import { useEffect, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { getMe } from "../api/auth";
 import { AppLayout } from "../components/AppLayout";
 import { RequireAdmin } from "../auth/RequireAdmin";
-import { clearSession, getSession } from "../auth/session";
+import {
+  clearSession,
+  getSession,
+  subscribeSession,
+} from "../auth/session";
 import { DashboardPage } from "../pages/DashboardPage";
+import { CommunityPage } from "../pages/CommunityPage";
+import { FancyNumbersPage } from "../pages/FancyNumbersPage";
 import { LoginPage } from "../pages/LoginPage";
 import { ReportsPage } from "../pages/ReportsPage";
 import { SystemStatusPage } from "../pages/SystemStatusPage";
@@ -23,20 +30,30 @@ const queryClient = new QueryClient({
 });
 
 function AdminRoutes() {
-  const session = getSession();
+  const [session, setSession] = useState(getSession);
+  useEffect(
+    () => subscribeSession(() => setSession(getSession())),
+    [],
+  );
   const me = useQuery({
     queryKey: ["me"],
     queryFn: getMe,
     enabled: !!session,
     retry: 0,
   });
+  useEffect(() => {
+    if (session && me.isError) clearSession();
+  }, [session, me.isError]);
 
   if (session && me.isLoading) {
     return <Spin fullscreen />;
   }
 
   if (session && me.isError) {
-    clearSession();
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!session) {
     return <Navigate to="/login" replace />;
   }
 
@@ -47,6 +64,8 @@ function AdminRoutes() {
           <Route element={<AppLayout user={me.data} />}>
             <Route index element={<DashboardPage />} />
             <Route path="reports" element={<ReportsPage />} />
+            <Route path="community" element={<CommunityPage />} />
+            <Route path="fancy-numbers" element={<FancyNumbersPage />} />
             <Route path="users" element={<UsersPage />} />
             <Route
               path="users/:userId"
