@@ -20,7 +20,7 @@ import {
   message,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   getUserAvatarFrames,
   grantAvatarFrame,
@@ -60,20 +60,21 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
   const [expiresAt, setExpiresAt] = useState("");
   const [grantReason, setGrantReason] = useState("");
   const [grantRequestKey, setGrantRequestKey] = useState("");
+  const [grantSubmittedPayload, setGrantSubmittedPayload] = useState<
+    string | null
+  >(null);
   const [revokeTarget, setRevokeTarget] = useState<AvatarFrameGrant | null>(
     null,
   );
   const [revokeReason, setRevokeReason] = useState("");
-
-  const rotateGrantRequestKey = () => {
-    setGrantRequestKey(newIdempotencyKey());
-  };
+  const refreshedExpiryRef = useRef<number | null>(null);
 
   const resetGrantDraft = () => {
     setFrameId("");
     setExpiresAt("");
     setGrantReason("");
     setGrantRequestKey("");
+    setGrantSubmittedPayload(null);
   };
 
   const assets = useQuery({
@@ -94,24 +95,45 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
   );
 
   useEffect(() => {
+    refreshedExpiryRef.current = null;
+  }, [userId]);
+
+  useEffect(() => {
     const now = Date.now();
-    const nearestExpiry = grants.reduce<number | null>((nearest, grant) => {
-      if (grant.status !== "ACTIVE" || !grant.expiresAt) return nearest;
-      const expiry = new Date(grant.expiresAt).getTime();
-      if (!Number.isFinite(expiry)) return nearest;
-      return nearest === null || expiry < nearest ? expiry : nearest;
-    }, null);
+    const expirations = [
+      ...grants
+        .filter((grant) => grant.status === "ACTIVE")
+        .map((grant) => grant.expiresAt),
+      ...(current?.items.flatMap((item) => [
+        item.availableUntil,
+        ...item.ownedSources.map((source) => source.expiresAt),
+      ]) ?? []),
+      current?.equippedFrameExpiresAt ?? null,
+    ];
+    const nearestExpiry = expirations.reduce<number | null>(
+      (nearest, value) => {
+        if (!value) return nearest;
+        const expiry = new Date(value).getTime();
+        if (!Number.isFinite(expiry)) return nearest;
+        return nearest === null || expiry < nearest ? expiry : nearest;
+      },
+      null,
+    );
     if (nearestExpiry === null) return;
+    if (nearestExpiry <= now && refreshedExpiryRef.current === nearestExpiry) {
+      return;
+    }
 
     const delay = Math.min(
       Math.max(nearestExpiry - now, 0) + 50,
       MAX_TIMER_DELAY_MS,
     );
     const timer = window.setTimeout(() => {
+      refreshedExpiryRef.current = nearestExpiry;
       void inventory.refetch();
     }, delay);
     return () => window.clearTimeout(timer);
-  }, [grants, inventory.refetch]);
+  }, [current, grants, inventory.refetch]);
 
   const refresh = async () => {
     await Promise.all([
@@ -125,13 +147,8 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
   };
 
   const grantMutation = useMutation({
-    mutationFn: () =>
-      grantAvatarFrame(userId, {
-        frameId,
-        expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
-        reason: grantReason.trim(),
-        idempotencyKey: grantRequestKey,
-      }),
+    mutationFn: (payload: Parameters<typeof grantAvatarFrame>[1]) =>
+      grantAvatarFrame(userId, payload),
     onSuccess: async ({ replayed }) => {
       setGrantOpen(false);
       resetGrantDraft();
@@ -261,7 +278,9 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
           <Space orientation="vertical" size={16} style={{ width: "100%" }}>
             <Descriptions column={1} size="small" title="当前展示">
               <Descriptions.Item label="头像框">
-                {current?.equippedFrame?.name || "不展示头像框"}
+                {inventory.isLoading && !current
+                  ? "加载中…"
+                  : current?.equippedFrame?.name || "不展示头像框"}
               </Descriptions.Item>
               {current?.equippedFrame ? (
                 <Descriptions.Item label="展示有效至">
@@ -326,7 +345,29 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
           setGrantOpen(false);
           resetGrantDraft();
         }}
-        onOk={() => grantMutation.mutate()}
+        onOk={() => {
+          const normalizedExpiresAt = expiresAt
+            ? new Date(expiresAt).toISOString()
+            : null;
+          const submittedPayload = JSON.stringify([
+            frameId,
+            normalizedExpiresAt,
+            grantReason.trim(),
+          ]);
+          const idempotencyKey =
+            grantSubmittedPayload === null ||
+            grantSubmittedPayload === submittedPayload
+              ? grantRequestKey
+              : newIdempotencyKey();
+          setGrantRequestKey(idempotencyKey);
+          setGrantSubmittedPayload(submittedPayload);
+          grantMutation.mutate({
+            frameId,
+            expiresAt: normalizedExpiresAt,
+            reason: grantReason.trim(),
+            idempotencyKey,
+          });
+        }}
         destroyOnHidden
       >
         <Space orientation="vertical" size={12} style={{ width: "100%" }}>
@@ -348,10 +389,7 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
               value: asset.id,
               label: asset.name,
             }))}
-            onChange={(value) => {
-              setFrameId(value);
-              rotateGrantRequestKey();
-            }}
+            onChange={setFrameId}
             style={{ width: "100%" }}
           />
           <label>
@@ -361,10 +399,7 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
               type="datetime-local"
               disabled={grantMutation.isPending}
               value={expiresAt}
-              onChange={(event) => {
-                setExpiresAt(event.target.value);
-                rotateGrantRequestKey();
-              }}
+              onChange={(event) => setExpiresAt(event.target.value)}
             />
           </label>
           <Input.TextArea
@@ -375,10 +410,7 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
             showCount
             disabled={grantMutation.isPending}
             value={grantReason}
-            onChange={(event) => {
-              setGrantReason(event.target.value);
-              rotateGrantRequestKey();
-            }}
+            onChange={(event) => setGrantReason(event.target.value)}
           />
         </Space>
       </Modal>

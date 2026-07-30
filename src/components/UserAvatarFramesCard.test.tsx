@@ -135,6 +135,19 @@ describe("UserAvatarFramesCard", () => {
     });
   });
 
+  it("keeps the current frame unknown while the first inventory page loads", async () => {
+    const pending = deferred<Awaited<ReturnType<typeof getUserAvatarFrames>>>();
+    mockedInventory.mockReturnValue(pending.promise);
+
+    renderCard();
+
+    expect(screen.getByText("加载中…")).toBeInTheDocument();
+    expect(screen.queryByText("不展示头像框")).not.toBeInTheDocument();
+
+    pending.resolve(inventoryResponse);
+    expect(await screen.findByText("不展示头像框")).toBeInTheDocument();
+  });
+
   it("refetches when the nearest active grant expires", async () => {
     const expiresAt = new Date(Date.now() + 30).toISOString();
     mockedInventory.mockResolvedValue({
@@ -148,10 +161,31 @@ describe("UserAvatarFramesCard", () => {
     renderCard();
 
     expect(await screen.findByText("历史发放")).toBeInTheDocument();
-    await waitFor(
-      () => expect(mockedInventory).toHaveBeenCalledTimes(2),
-      { timeout: 1_000 },
-    );
+    await waitFor(() => expect(mockedInventory).toHaveBeenCalledTimes(2), {
+      timeout: 1_000,
+    });
+  });
+
+  it("refetches when membership-only ownership expires", async () => {
+    const expiresAt = new Date(Date.now() + 30).toISOString();
+    mockedInventory.mockResolvedValue({
+      ...inventoryResponse,
+      items: inventoryResponse.items.map((item) => ({
+        ...item,
+        availableUntil: expiresAt,
+        ownedSources: item.ownedSources.map((source) => ({
+          ...source,
+          expiresAt,
+        })),
+      })),
+    });
+
+    renderCard();
+
+    expect(await screen.findByText("会员 Lv.3")).toBeInTheDocument();
+    await waitFor(() => expect(mockedInventory).toHaveBeenCalledTimes(2), {
+      timeout: 1_000,
+    });
   });
 
   it("does not dismiss a grant dialog while the write is pending", async () => {
@@ -334,6 +368,46 @@ describe("UserAvatarFramesCard", () => {
 
     await waitFor(() => expect(mockedGrant).toHaveBeenCalledTimes(2));
     expect(mockedGrant.mock.calls[1]?.[1].idempotencyKey).not.toBe(
+      mockedGrant.mock.calls[0]?.[1].idempotencyKey,
+    );
+  });
+
+  it("preserves the grant key for normalization-equivalent retries", async () => {
+    mockedGrant
+      .mockRejectedValueOnce(new Error("response lost"))
+      .mockResolvedValueOnce({ replayed: true, grant: grantRecord });
+    renderCard();
+
+    const grantButton = await screen.findByRole("button", {
+      name: "发放头像框",
+    });
+    await waitFor(() => expect(grantButton).toBeEnabled());
+    fireEvent.click(grantButton);
+    fireEvent.mouseDown(screen.getByLabelText("选择头像框"));
+    fireEvent.click(
+      await screen.findByText("钻石头像框", {
+        selector: ".ant-select-item-option-content",
+      }),
+    );
+    fireEvent.change(screen.getByLabelText("发放原因"), {
+      target: { value: "客服补发" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "确认发放" }));
+    await waitFor(() => expect(mockedGrant).toHaveBeenCalledTimes(1));
+    await expect(mockedGrant.mock.results[0]?.value).rejects.toThrow(
+      "response lost",
+    );
+    await waitFor(() =>
+      expect(screen.getByLabelText("发放原因")).toBeEnabled(),
+    );
+
+    fireEvent.change(screen.getByLabelText("发放原因"), {
+      target: { value: "  客服补发  " },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "确认发放" }));
+
+    await waitFor(() => expect(mockedGrant).toHaveBeenCalledTimes(2));
+    expect(mockedGrant.mock.calls[1]?.[1].idempotencyKey).toBe(
       mockedGrant.mock.calls[0]?.[1].idempotencyKey,
     );
   });

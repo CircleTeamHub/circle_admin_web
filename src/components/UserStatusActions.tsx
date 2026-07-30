@@ -54,13 +54,11 @@ export function UserStatusActions({
   // 详情页路由在 /users/:userId 之间切换时不会卸载本组件，
   // 未重置的弹窗会把上一个用户的操作原因提交到新用户身上。
   useEffect(() => {
-    return () => {
-      setTargetStatus(null);
-      setReason("");
-      setConfirmationAccountId("");
-      setReasonError(false);
-      setConfirmationError(false);
-    };
+    setTargetStatus(null);
+    setReason("");
+    setConfirmationAccountId("");
+    setReasonError(false);
+    setConfirmationError(false);
   }, [userId]);
 
   const mutation = useMutation({
@@ -126,7 +124,9 @@ export function UserStatusActions({
         </Typography.Paragraph>
       ) : null}
       <Modal
-        title={targetStatus ? `确认${ACTION_LABEL[targetStatus]}用户` : "状态操作"}
+        title={
+          targetStatus ? `确认${ACTION_LABEL[targetStatus]}用户` : "状态操作"
+        }
         open={targetStatus !== null}
         okText="确认操作"
         cancelText="取消"
