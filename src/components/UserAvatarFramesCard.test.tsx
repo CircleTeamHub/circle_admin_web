@@ -202,6 +202,68 @@ describe("UserAvatarFramesCard", () => {
     expect(screen.getByText("撤销 钻石头像框 授权")).toBeInTheDocument();
   });
 
+  it("keeps revoke actions locked until the inventory refresh completes", async () => {
+    const activeInventory = {
+      ...inventoryResponse,
+      grants: {
+        items: [grantRecord],
+        limit: 50,
+        hasMore: false,
+        nextCursor: null,
+      },
+    };
+    const refetch =
+      deferred<Awaited<ReturnType<typeof getUserAvatarFrames>>>();
+    mockedInventory
+      .mockResolvedValueOnce(activeInventory)
+      .mockReturnValueOnce(refetch.promise);
+    mockedRevoke.mockResolvedValue({
+      replayed: false,
+      grant: {
+        ...grantRecord,
+        status: "REVOKED",
+        revokedAt: "2026-07-30T00:00:00.000Z",
+        revokedByUserId: "admin-1",
+        revokeReason: "授权错误",
+      },
+    });
+    renderCard();
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: /撤\s*销/ }),
+    );
+    fireEvent.change(screen.getByLabelText("撤销原因"), {
+      target: { value: "授权错误" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "确认撤销" }));
+
+    await waitFor(() => expect(mockedInventory).toHaveBeenCalledTimes(2));
+    expect(
+      screen.getByRole("button", { name: /撤\s*销/ }),
+    ).toBeDisabled();
+
+    refetch.resolve({
+      ...activeInventory,
+      grants: {
+        ...activeInventory.grants,
+        items: [
+          {
+            ...grantRecord,
+            status: "REVOKED",
+            revokedAt: "2026-07-30T00:00:00.000Z",
+            revokedByUserId: "admin-1",
+            revokeReason: "授权错误",
+          },
+        ],
+      },
+    });
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: /撤\s*销/ }),
+      ).toBeDisabled(),
+    );
+  });
+
   it("rotates the grant key when a failed request payload is edited", async () => {
     mockedGrant
       .mockRejectedValueOnce(new Error("response lost"))

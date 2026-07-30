@@ -5,6 +5,7 @@ export interface SessionTokens {
 
 const SESSION_KEY = "circle_admin_session";
 const SESSION_CHANGED_EVENT = "circle-admin-session-changed";
+let sessionEpoch = 0;
 
 function notifySessionChanged(): void {
   window.dispatchEvent(new Event(SESSION_CHANGED_EVENT));
@@ -24,13 +25,29 @@ export function getSession(): SessionTokens | null {
 }
 
 export function setSession(tokens: SessionTokens): void {
+  sessionEpoch += 1;
   window.sessionStorage.setItem(SESSION_KEY, JSON.stringify(tokens));
   notifySessionChanged();
 }
 
+export function setSessionIfCurrent(
+  expectedEpoch: number,
+  tokens: SessionTokens,
+): boolean {
+  if (sessionEpoch !== expectedEpoch) return false;
+  window.sessionStorage.setItem(SESSION_KEY, JSON.stringify(tokens));
+  notifySessionChanged();
+  return true;
+}
+
 export function clearSession(): void {
+  sessionEpoch += 1;
   window.sessionStorage.removeItem(SESSION_KEY);
   notifySessionChanged();
+}
+
+export function getSessionEpoch(): number {
+  return sessionEpoch;
 }
 
 export function subscribeSession(listener: () => void): () => void {

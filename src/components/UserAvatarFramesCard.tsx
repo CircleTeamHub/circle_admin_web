@@ -186,7 +186,7 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
         <Button
           danger
           size="small"
-          disabled={grant.status !== "ACTIVE"}
+          disabled={grant.status !== "ACTIVE" || revokeMutation.isPending}
           onClick={() => setRevokeTarget(grant)}
         >
           撤销

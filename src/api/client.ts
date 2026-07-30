@@ -1,4 +1,9 @@
-import { clearSession, getSession, setSession } from "../auth/session";
+import {
+  clearSession,
+  getSession,
+  getSessionEpoch,
+  setSessionIfCurrent,
+} from "../auth/session";
 
 export class ApiError extends Error {
   constructor(
@@ -23,7 +28,10 @@ interface ApiClientOptions extends RequestInit {
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api/v1";
-let refreshInFlight: Promise<string> | null = null;
+let refreshInFlight: {
+  sessionEpoch: number;
+  promise: Promise<string>;
+} | null = null;
 
 function apiUrl(path: string): string {
   return `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
@@ -70,7 +78,12 @@ async function parseResponse<T>(response: Response): Promise<T> {
   return isEnvelope<T>(payload) ? (payload.data as T) : (payload as T);
 }
 
-async function refreshAccessToken(): Promise<string> {
+function sessionChangedError(): ApiError {
+  return new ApiError("登录状态已变更，请重试", 401);
+}
+
+async function refreshAccessToken(sessionEpoch: number): Promise<string> {
+  if (getSessionEpoch() !== sessionEpoch) throw sessionChangedError();
   const session = getSession();
   if (!session?.refreshToken) {
     throw new ApiError("登录已失效，请重新登录", 401);
@@ -85,17 +98,24 @@ async function refreshAccessToken(): Promise<string> {
       body: JSON.stringify({ refreshToken: session.refreshToken }),
     },
   );
-  setSession(data);
+  if (!setSessionIfCurrent(sessionEpoch, data)) {
+    throw sessionChangedError();
+  }
   return data.accessToken;
 }
 
-function getRefreshedAccessToken(): Promise<string> {
-  if (!refreshInFlight) {
-    refreshInFlight = refreshAccessToken().finally(() => {
-      refreshInFlight = null;
-    });
+function getRefreshedAccessToken(sessionEpoch: number): Promise<string> {
+  if (refreshInFlight?.sessionEpoch === sessionEpoch) {
+    return refreshInFlight.promise;
   }
-  return refreshInFlight;
+
+  const promise = refreshAccessToken(sessionEpoch).finally(() => {
+    if (refreshInFlight?.promise === promise) {
+      refreshInFlight = null;
+    }
+  });
+  refreshInFlight = { sessionEpoch, promise };
+  return promise;
 }
 
 export async function apiClient<T>(
@@ -104,6 +124,7 @@ export async function apiClient<T>(
 ): Promise<T> {
   const { auth = true, retryOnUnauthorized = true, headers, ...requestInit } = options;
   const session = getSession();
+  const sessionEpoch = getSessionEpoch();
   const requestHeaders: Record<string, string> = {};
   new Headers(headers).forEach((value, key) => {
     requestHeaders[key] = value;
@@ -122,13 +143,19 @@ export async function apiClient<T>(
   });
 
   if (response.status === 401 && auth && retryOnUnauthorized) {
+    if (getSessionEpoch() !== sessionEpoch) {
+      throw sessionChangedError();
+    }
     try {
       const latestSession = getSession();
       const accessToken =
         latestSession?.accessToken &&
         latestSession.accessToken !== session?.accessToken
           ? latestSession.accessToken
-          : await getRefreshedAccessToken();
+          : await getRefreshedAccessToken(sessionEpoch);
+      if (getSessionEpoch() !== sessionEpoch) {
+        throw sessionChangedError();
+      }
       requestHeaders.Authorization = `Bearer ${accessToken}`;
       return parseResponse<T>(
         await fetch(apiUrl(path), {
@@ -137,7 +164,9 @@ export async function apiClient<T>(
         }),
       );
     } catch (error) {
-      clearSession();
+      if (getSessionEpoch() === sessionEpoch) {
+        clearSession();
+      }
       throw error;
     }
   }
