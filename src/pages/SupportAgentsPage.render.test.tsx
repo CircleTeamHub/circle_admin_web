@@ -136,9 +136,9 @@ describe("SupportAgentsPage write guards", () => {
     expect(screen.getByRole("switch")).not.toBeChecked();
   });
 
-  // 整表覆盖 + 旧页签 = 无声抹掉别人的改动。服务端用 revision 判 409，
-  // 这里必须把最新配置拉回来而不是照常提交。
-  it("reloads instead of overwriting when the server reports a conflict", async () => {
+  // 整表覆盖 + 旧页签 = 无声抹掉别人的改动，所以服务端用 revision 判 409。
+  // 但客户端也不能顺手把本地草稿丢了 —— 那等于「按一下保存，自己的改动全没了」。
+  it("keeps the draft and surfaces the conflict instead of discarding edits", async () => {
     mockedList.mockResolvedValue({ agents: [agent], revision: "rev-1" });
     mockedReplace.mockRejectedValue(new ApiError("冲突", 409));
 
@@ -154,9 +154,43 @@ describe("SupportAgentsPage write guards", () => {
     });
     saveButton().click();
 
-    // 冲突后载入最新配置：草稿被丢弃，脏标记消失。
+    // 冲突被显式告知，而不是静默失败。
+    await waitFor(() =>
+      expect(screen.getByText("保存失败：配置已被其他管理员修改")).toBeTruthy(),
+    );
+    // 草稿还在：开关仍是我改过的那个状态，保存仍可点。
+    expect(screen.getByRole("switch")).not.toBeChecked();
+    expect(saveButton()).toBeEnabled();
+
+    // 放弃是显式动作，不是副作用。
+    screen.getByRole("button", { name: /放弃我的修改并载入最新/ }).click();
     await waitFor(() => expect(screen.getByText("别人存的客服")).toBeTruthy());
     await waitFor(() => expect(saveButton()).toBeDisabled());
+  });
+
+  // 本地什么都没改时，后台刷新应当采纳新数据 —— 否则屏幕上停着过期列表，
+  // 却显示「有未保存的修改」，存下去还会撞一个本可避免的 409。
+  it("adopts refreshed server data when there are no local edits", async () => {
+    mockedList.mockResolvedValue({ agents: [agent], revision: "rev-1" });
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={client}>
+        <SupportAgentsPage />
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(addButtons()[0]).toBeEnabled());
+
+    mockedList.mockResolvedValue({
+      agents: [{ ...agent, nickname: "别人存的客服" }],
+      revision: "rev-2",
+    });
+    await client.invalidateQueries({ queryKey: ["supportAgents"] });
+
+    await waitFor(() => expect(screen.getByText("别人存的客服")).toBeTruthy());
+    // 没动过就不该显示「有未保存的修改」。
+    expect(saveButton()).toBeDisabled();
   });
 
   it("sends the revision it loaded so the server can detect staleness", async () => {

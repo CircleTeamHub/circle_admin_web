@@ -28,6 +28,7 @@ import {
   SUPPORT_CATEGORY_LABELS,
   type SupportAgent,
   type SupportAgentInput,
+  type SupportAgentList,
   type SupportCategory,
 } from "../api/support-agents";
 import { listUsers } from "../api/users";
@@ -246,47 +247,57 @@ function AddAgentModal({
 
 export function SupportAgentsPage() {
   const queryClient = useQueryClient();
-  const [draft, setDraft] = useState<SupportAgent[] | null>(null);
-  const [baseRevision, setBaseRevision] = useState<string | null>(null);
+  // 草稿连同它所基于的那份服务端快照一起存。脏与否要拿草稿跟**它的 base** 比,
+  // 而不是跟最新的服务端数据比 —— 否则别人改了一版,本地什么都没动也会显示
+  // 「有未保存的修改」,还让人存下一份陈旧配置去撞 409。
+  const [editing, setEditing] = useState<{
+    draft: SupportAgent[];
+    base: SupportAgentList;
+  } | null>(null);
+  const [conflict, setConflict] = useState(false);
   const [adding, setAdding] = useState<SupportCategory | null>(null);
 
   const query = useQuery({ queryKey: QUERY_KEY, queryFn: listSupportAgents });
 
-  const original = useMemo(() => query.data?.agents ?? [], [query.data]);
-  // 只在「还没有草稿」时用服务端数据初始化。原来是无条件覆盖:断网重连触发一次
-  // 后台 refetch,管理员手里没保存的改动就被静默清空、连脏标记也一起没了 ——
-  // 既没按保存也没按放弃。有草稿时保留草稿,冲突交给保存时的版本校验去发现。
   useEffect(() => {
-    if (!query.data) return;
-    setDraft((current) => {
-      if (current !== null) return current;
-      // 草稿所基于的版本,和草稿本身同时确定。
-      setBaseRevision(query.data.revision);
-      return query.data.agents;
+    const data = query.data;
+    if (!data) return;
+    setEditing((current) => {
+      // 首屏:直接采纳。
+      if (current === null) return { draft: data.agents, base: data };
+      // 本地没改动:采纳新数据,别把过期列表留在屏幕上。
+      if (!hasChanges(current.base.agents, current.draft)) {
+        return { draft: data.agents, base: data };
+      }
+      // 本地有未保存的改动:保住它。冲突留到保存时由 revision 校验发现,
+      // 后台刷新不该替管理员做「丢弃」这个决定。
+      return current;
     });
   }, [query.data]);
 
-  const agents = draft ?? original;
-  const dirty = hasChanges(original, agents);
+  const agents = editing?.draft ?? [];
+  const dirty = editing ? hasChanges(editing.base.agents, editing.draft) : false;
+  const setDraft = (next: SupportAgent[]) =>
+    setEditing((current) => (current ? { ...current, draft: next } : current));
 
   const save = useMutation({
-    mutationFn: () => replaceSupportAgents(toPayload(agents), baseRevision ?? ""),
+    mutationFn: () =>
+      replaceSupportAgents(toPayload(agents), editing?.base.revision ?? ""),
     onSuccess: (result) => {
       queryClient.setQueryData(QUERY_KEY, result);
-      setDraft(result.agents);
-      setBaseRevision(result.revision);
+      setEditing({ draft: result.agents, base: result });
+      setConflict(false);
       void message.success("客服配置已保存");
     },
     onError: (error) => {
       // 409 = 这份草稿基于的版本已经不是最新的：别人在此期间存过。整表覆盖若照常
-      // 提交，对方的改动会被无声抹掉，所以这里拉回最新配置并让管理员重做。
+      // 提交，对方的改动会被无声抹掉。
+      //
+      // 但也不能顺手把本地草稿丢了 —— 那等于「按一下保存，自己的改动全没了」。
+      // 保留草稿、只是把冲突标出来，由管理员决定放弃还是重做。
       if (error instanceof ApiError && error.status === 409) {
-        setDraft(null);
-        setBaseRevision(null);
+        setConflict(true);
         void queryClient.invalidateQueries({ queryKey: QUERY_KEY });
-        void message.warning(
-          "客服配置已被其他管理员修改，已为你载入最新配置，请重新调整后保存",
-        );
         return;
       }
       void message.error(getErrorMessage(error));
@@ -296,7 +307,7 @@ export function SupportAgentsPage() {
   // PUT 是整表覆盖:首屏 GET 还没回来时 original 是空数组,此时加一个人就会 dirty,
   // 保存下去等于「只提交这一行 + 删掉尚未加载出来的全部配置」。所以初始加载成功
   // 之前一律不可编辑、不可保存。
-  const loaded = query.isSuccess && draft !== null;
+  const loaded = query.isSuccess && editing !== null;
   // 保存进行中也锁住:onSuccess 会用「提交那一刻的快照」覆盖 draft,
   // 期间的新编辑会被无声吃掉。
   const editable = loaded && !save.isPending;
@@ -394,6 +405,27 @@ export function SupportAgentsPage() {
 
   return (
     <Space direction="vertical" size="large" style={{ width: "100%" }}>
+      {conflict ? (
+        <Alert
+          type="warning"
+          showIcon
+          message="保存失败：配置已被其他管理员修改"
+          description="你的改动仍保留在页面上。可以「放弃修改」载入最新配置后重做，或对照最新配置调整后再次保存。"
+          action={
+            <Button
+              size="small"
+              onClick={() => {
+                if (query.data)
+                  setEditing({ draft: query.data.agents, base: query.data });
+                setConflict(false);
+              }}
+            >
+              放弃我的修改并载入最新
+            </Button>
+          }
+        />
+      ) : null}
+
       <Alert
         type="info"
         showIcon
@@ -448,8 +480,9 @@ export function SupportAgentsPage() {
         <Button
           disabled={!editable || !dirty}
           onClick={() => {
-            setDraft(original);
-            setBaseRevision(query.data?.revision ?? null);
+            // 放弃 = 回到最新的服务端配置（冲突后这里已经是别人存的那一版）。
+            if (query.data) setEditing({ draft: query.data.agents, base: query.data });
+            setConflict(false);
           }}
         >
           放弃修改
