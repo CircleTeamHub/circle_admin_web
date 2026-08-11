@@ -1,6 +1,7 @@
 import {
   DashboardOutlined,
   CommentOutlined,
+  CustomerServiceOutlined,
   LogoutOutlined,
   SafetyCertificateOutlined,
   StarOutlined,
@@ -33,6 +34,7 @@ export function AppLayout({ user }: { user: AuthUser }) {
             { key: "/community", icon: <CommentOutlined />, label: "圈子与群聊" },
             { key: "/users", icon: <TeamOutlined />, label: "用户管理" },
             { key: "/fancy-numbers", icon: <StarOutlined />, label: "热门靓号" },
+            { key: "/support-agents", icon: <CustomerServiceOutlined />, label: "客服配置" },
             { key: "/system", icon: <ToolOutlined />, label: "系统状态" },
           ]}
         />
