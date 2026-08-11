@@ -137,6 +137,20 @@ export function hasChanges(
   );
 }
 
+/**
+ * 搜索框的空态文案。失败和「查无此人」必须分开 —— 前者是接口挂了、可以重试，
+ * 后者是这个人确实不存在；混成一句话会让管理员照着错误的结论行动。
+ */
+export function searchStatusText(
+  search: { isError: boolean; isFetching: boolean },
+  keyword: string,
+): string | null {
+  if (!keyword.trim()) return null;
+  if (search.isFetching) return "搜索中…";
+  if (search.isError) return "搜索失败";
+  return "无匹配用户";
+}
+
 // ---------------------------------------------------------------------------
 
 function AddAgentModal({
@@ -201,10 +215,23 @@ function AddAgentModal({
           value={selected ?? undefined}
           loading={search.isFetching}
           options={options}
-          notFoundContent={
-            keyword.trim() ? (search.isFetching ? "搜索中…" : "无匹配用户") : null
-          }
+          notFoundContent={searchStatusText(search, keyword)}
         />
+        {search.isError ? (
+          // 搜索失败必须说是失败:报成「无匹配用户」会让管理员以为这个人不存在,
+          // 从而放弃添加,而真正的原因是接口挂了。
+          <Alert
+            type="error"
+            showIcon
+            message="用户搜索失败"
+            description={getErrorMessage(search.error)}
+            action={
+              <Button size="small" onClick={() => void search.refetch()}>
+                重试
+              </Button>
+            }
+          />
+        ) : null}
       </Space>
     </Modal>
   );
@@ -238,6 +265,27 @@ export function SupportAgentsPage() {
     },
   });
 
+  // PUT 是整表覆盖:首屏 GET 还没回来时 original 是空数组,此时加一个人就会 dirty,
+  // 保存下去等于「只提交这一行 + 删掉尚未加载出来的全部配置」。所以初始加载成功
+  // 之前一律不可编辑、不可保存。
+  const loaded = query.isSuccess && draft !== null;
+  // 保存进行中也锁住:onSuccess 会用「提交那一刻的快照」覆盖 draft,
+  // 期间的新编辑会被无声吃掉。
+  const editable = loaded && !save.isPending;
+
+  // 未保存的草稿在刷新/关页时给出确认。侧栏跳转拦不住:本应用用的是
+  // <BrowserRouter>(非 data router),useBlocker 在这里会抛错,而为这一个页面
+  // 把整个应用迁到 createBrowserRouter 不成比例。
+  useEffect(() => {
+    if (!dirty) return;
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [dirty]);
+
   if (query.isError) {
     return <PageError error={query.error} onRetry={() => void query.refetch()} />;
   }
@@ -269,6 +317,7 @@ export function SupportAgentsPage() {
       render: (enabled: boolean, agent) => (
         <Switch
           checked={enabled}
+          disabled={!editable}
           onChange={(next) =>
             setDraft(setAgentEnabled(agents, category, agent.userID, next))
           }
@@ -284,14 +333,16 @@ export function SupportAgentsPage() {
             size="small"
             icon={<ArrowUpOutlined />}
             aria-label={`上移 ${agent.nickname}`}
-            disabled={index === 0}
+            disabled={!editable || index === 0}
             onClick={() => setDraft(moveAgent(agents, category, agent.userID, -1))}
           />
           <Button
             size="small"
             icon={<ArrowDownOutlined />}
             aria-label={`下移 ${agent.nickname}`}
-            disabled={index === agentsOf(agents, category).length - 1}
+            disabled={
+              !editable || index === agentsOf(agents, category).length - 1
+            }
             onClick={() => setDraft(moveAgent(agents, category, agent.userID, 1))}
           />
         </Space>
@@ -306,6 +357,7 @@ export function SupportAgentsPage() {
           danger
           icon={<DeleteOutlined />}
           aria-label={`移除 ${agent.nickname}`}
+          disabled={!editable}
           onClick={() => setDraft(removeAgent(agents, category, agent.userID))}
         />
       ),
@@ -330,6 +382,7 @@ export function SupportAgentsPage() {
             extra={
               <Button
                 icon={<PlusOutlined />}
+                disabled={!editable}
                 onClick={() => setAdding(category)}
               >
                 添加客服
@@ -359,12 +412,15 @@ export function SupportAgentsPage() {
         <Button
           type="primary"
           loading={save.isPending}
-          disabled={!dirty}
+          disabled={!editable || !dirty}
           onClick={() => save.mutate()}
         >
           保存
         </Button>
-        <Button disabled={!dirty} onClick={() => setDraft(original)}>
+        <Button
+          disabled={!editable || !dirty}
+          onClick={() => setDraft(original)}
+        >
           放弃修改
         </Button>
         {dirty ? (

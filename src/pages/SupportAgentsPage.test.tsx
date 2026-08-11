@@ -5,6 +5,7 @@ import {
   hasChanges,
   moveAgent,
   removeAgent,
+  searchStatusText,
   setAgentEnabled,
   toPayload,
 } from "./SupportAgentsPage";
@@ -131,6 +132,23 @@ describe("support agent draft editing", () => {
     ).toBe(true);
     expect(hasChanges(original, removeAgent(original, "recharge", "a"))).toBe(
       true,
+    );
+  });
+
+  // 搜索失败报成「无匹配用户」会让管理员以为这个人不存在，从而放弃添加，
+  // 而真正的原因是接口挂了。
+  it("tells a failed user search apart from an empty one", () => {
+    expect(searchStatusText({ isError: false, isFetching: false }, "  ")).toBe(
+      null,
+    );
+    expect(searchStatusText({ isError: false, isFetching: true }, "abc")).toBe(
+      "搜索中…",
+    );
+    expect(searchStatusText({ isError: true, isFetching: false }, "abc")).toBe(
+      "搜索失败",
+    );
+    expect(searchStatusText({ isError: false, isFetching: false }, "abc")).toBe(
+      "无匹配用户",
     );
   });
 });
