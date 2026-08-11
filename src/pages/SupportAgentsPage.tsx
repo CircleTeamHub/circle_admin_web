@@ -31,6 +31,7 @@ import {
   type SupportCategory,
 } from "../api/support-agents";
 import { listUsers } from "../api/users";
+import { ApiError } from "../api/client";
 import { PageError } from "../components/PageError";
 import { getErrorMessage } from "../utils/errors";
 import type { AdminUserListItem } from "../types";
@@ -210,7 +211,13 @@ function AddAgentModal({
           style={{ width: "100%" }}
           placeholder="输入昵称或账号搜索"
           filterOption={false}
-          onSearch={setKeyword}
+          // 改关键词必须清掉已选:否则 selected 还指着上一次结果里的人,而 options
+          // 已经换成新查询的了 —— 「添加」按钮看着可点,onOk 里 find 不到就静默什么
+          // 也不做,管理员只会觉得这个按钮坏了。
+          onSearch={(value: string) => {
+            setKeyword(value);
+            setSelected(null);
+          }}
           onChange={(value: string) => setSelected(value)}
           value={selected ?? undefined}
           loading={search.isFetching}
@@ -240,27 +247,48 @@ function AddAgentModal({
 export function SupportAgentsPage() {
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<SupportAgent[] | null>(null);
+  const [baseRevision, setBaseRevision] = useState<string | null>(null);
   const [adding, setAdding] = useState<SupportCategory | null>(null);
 
   const query = useQuery({ queryKey: QUERY_KEY, queryFn: listSupportAgents });
 
   const original = useMemo(() => query.data?.agents ?? [], [query.data]);
-  // 服务端数据到达(或刷新)后重置草稿;此后所有编辑都只动草稿。
+  // 只在「还没有草稿」时用服务端数据初始化。原来是无条件覆盖:断网重连触发一次
+  // 后台 refetch,管理员手里没保存的改动就被静默清空、连脏标记也一起没了 ——
+  // 既没按保存也没按放弃。有草稿时保留草稿,冲突交给保存时的版本校验去发现。
   useEffect(() => {
-    if (query.data) setDraft(query.data.agents);
+    if (!query.data) return;
+    setDraft((current) => {
+      if (current !== null) return current;
+      // 草稿所基于的版本,和草稿本身同时确定。
+      setBaseRevision(query.data.revision);
+      return query.data.agents;
+    });
   }, [query.data]);
 
   const agents = draft ?? original;
   const dirty = hasChanges(original, agents);
 
   const save = useMutation({
-    mutationFn: () => replaceSupportAgents(toPayload(agents)),
+    mutationFn: () => replaceSupportAgents(toPayload(agents), baseRevision ?? ""),
     onSuccess: (result) => {
       queryClient.setQueryData(QUERY_KEY, result);
       setDraft(result.agents);
+      setBaseRevision(result.revision);
       void message.success("客服配置已保存");
     },
     onError: (error) => {
+      // 409 = 这份草稿基于的版本已经不是最新的：别人在此期间存过。整表覆盖若照常
+      // 提交，对方的改动会被无声抹掉，所以这里拉回最新配置并让管理员重做。
+      if (error instanceof ApiError && error.status === 409) {
+        setDraft(null);
+        setBaseRevision(null);
+        void queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+        void message.warning(
+          "客服配置已被其他管理员修改，已为你载入最新配置，请重新调整后保存",
+        );
+        return;
+      }
       void message.error(getErrorMessage(error));
     },
   });
@@ -419,7 +447,10 @@ export function SupportAgentsPage() {
         </Button>
         <Button
           disabled={!editable || !dirty}
-          onClick={() => setDraft(original)}
+          onClick={() => {
+            setDraft(original);
+            setBaseRevision(query.data?.revision ?? null);
+          }}
         >
           放弃修改
         </Button>
