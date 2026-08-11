@@ -14,6 +14,7 @@ import {
 import { DashboardPage } from "../pages/DashboardPage";
 import { CommunityPage } from "../pages/CommunityPage";
 import { FancyNumbersPage } from "../pages/FancyNumbersPage";
+import { SupportAgentsPage } from "../pages/SupportAgentsPage";
 import { LoginPage } from "../pages/LoginPage";
 import { ReportsPage } from "../pages/ReportsPage";
 import { SystemStatusPage } from "../pages/SystemStatusPage";
@@ -66,6 +67,7 @@ function AdminRoutes() {
             <Route path="reports" element={<ReportsPage />} />
             <Route path="community" element={<CommunityPage />} />
             <Route path="fancy-numbers" element={<FancyNumbersPage />} />
+            <Route path="support-agents" element={<SupportAgentsPage />} />
             <Route path="users" element={<UsersPage />} />
             <Route
               path="users/:userId"
