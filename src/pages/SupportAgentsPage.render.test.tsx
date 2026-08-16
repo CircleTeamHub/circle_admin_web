@@ -23,6 +23,7 @@ const mockedReplace = vi.mocked(replaceSupportAgents);
 const agent: SupportAgent = {
   category: "recharge",
   userID: "u1",
+  accountId: "rechargecs01",
   nickname: "客服小王",
   avatarUrl: null,
   vipLevel: 0,
@@ -57,6 +58,16 @@ describe("SupportAgentsPage write guards", () => {
   beforeEach(() => {
     mockedList.mockReset();
     mockedReplace.mockReset();
+  });
+
+  it("shows the searchable account ID instead of the internal UUID", async () => {
+    mockedList.mockResolvedValue({ agents: [agent], revision: "rev-1" });
+
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText("rechargecs01")).toBeTruthy());
+    expect(screen.getByText("账号 ID")).toBeTruthy();
+    expect(screen.queryByText("u1")).toBeNull();
   });
 
   // PUT 是整表覆盖。首屏 GET 还没回来时 original 是空数组,若此时允许编辑,
