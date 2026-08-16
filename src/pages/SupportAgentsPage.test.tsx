@@ -18,6 +18,7 @@ const agent = (
 ): SupportAgent => ({
   category,
   userID,
+  accountId: `account-${userID}`,
   nickname: `nick-${userID}`,
   avatarUrl: null,
   vipLevel: 0,
@@ -26,7 +27,12 @@ const agent = (
   ...overrides,
 });
 
-const user = (id: string) => ({ id, nickname: `nick-${id}`, avatarUrl: null });
+const user = (id: string) => ({
+  id,
+  accountId: `account-${id}`,
+  nickname: `nick-${id}`,
+  avatarUrl: null,
+});
 
 describe("support agent draft editing", () => {
   it("never mutates the array it is given", () => {
@@ -44,6 +50,7 @@ describe("support agent draft editing", () => {
   it("refuses the same user twice in one category but allows it across categories", () => {
     const once = addAgent([], "recharge", user("u1"));
     expect(agentsOf(once, "recharge")).toHaveLength(1);
+    expect(once[0].accountId).toBe("account-u1");
 
     // 后端有 (category,userID) 唯一约束;这里先拦一道,免得保存时才报错。
     expect(addAgent(once, "recharge", user("u1"))).toBe(once);

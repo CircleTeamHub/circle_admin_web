@@ -21,6 +21,7 @@ export const SUPPORT_CATEGORY_LABELS: Record<SupportCategory, string> = {
 export interface SupportAgent {
   category: SupportCategory;
   userID: string;
+  accountId: string;
   nickname: string;
   avatarUrl: string | null;
   vipLevel: number;

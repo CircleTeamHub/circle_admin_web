@@ -54,7 +54,7 @@ export function agentsOf(
 export function addAgent(
   agents: SupportAgent[],
   category: SupportCategory,
-  user: Pick<AdminUserListItem, "id" | "nickname" | "avatarUrl">,
+  user: Pick<AdminUserListItem, "id" | "accountId" | "nickname" | "avatarUrl">,
 ): SupportAgent[] {
   // 同一类里不重复挂同一个人 —— 后端也有 (category,userID) 唯一约束,
   // 这里先拦一道,免得保存时才报错。
@@ -66,6 +66,7 @@ export function addAgent(
     {
       category,
       userID: user.id,
+      accountId: user.accountId,
       nickname: user.nickname,
       avatarUrl: user.avatarUrl,
       vipLevel: 0,
@@ -341,11 +342,11 @@ export function SupportAgentsPage() {
       ),
     },
     {
-      title: "用户 ID",
-      dataIndex: "userID",
-      render: (userID: string) => (
+      title: "账号 ID",
+      dataIndex: "accountId",
+      render: (accountId: string) => (
         <Typography.Text copyable type="secondary">
-          {userID}
+          {accountId}
         </Typography.Text>
       ),
     },
