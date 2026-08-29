@@ -69,6 +69,18 @@ test('admin release image pins its nginx base by digest', () => {
   assert.doesNotMatch(dockerignore, /^dist\/?$/m);
 });
 
+test('admin runtime images install current Alpine security updates', () => {
+  for (const filename of ['Dockerfile', 'Dockerfile.release']) {
+    const dockerfile = read(filename);
+
+    assert.match(
+      dockerfile,
+      /^RUN apk upgrade --no-cache$/m,
+      `${filename} must upgrade fixable Alpine packages during image build`,
+    );
+  }
+});
+
 test('admin workflow and server use the same strict version format', () => {
   const strictVersion = String.raw`^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$`;
 
