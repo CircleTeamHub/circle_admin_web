@@ -48,6 +48,7 @@ import { formatDateTime } from "../utils/format";
 
 const PAYMENT_CODES_KEY = ["supportRechargePaymentCodes"] as const;
 const ORDERS_KEY = ["supportRechargeOrders"] as const;
+const ORDER_PAGE_SIZE = 10;
 
 const STATUS_LABELS: Record<RechargeOrderStatus, string> = {
   AWAITING_PROOF: "等待付款截图",
@@ -153,7 +154,12 @@ export function SupportRechargePage() {
   const [approving, setApproving] = useState<SupportRechargeOrder | null>(null);
   const [rejecting, setRejecting] = useState<SupportRechargeOrder | null>(null);
   const [status, setStatus] = useState<RechargeOrderStatus>("WAITING_REVIEW");
+  const [orderPage, setOrderPage] = useState(0);
+  const [orderCursors, setOrderCursors] = useState<(string | undefined)[]>([
+    undefined,
+  ]);
   const fulfillmentType = Form.useWatch("fulfillmentType", approvalForm);
+  const orderCursor = orderCursors[orderPage];
 
   useEffect(() => {
     if (!approving) return;
@@ -181,9 +187,12 @@ export function SupportRechargePage() {
     queryFn: listSupportRechargePaymentCodes,
   });
   const orders = useQuery({
-    queryKey: [...ORDERS_KEY, status],
-    queryFn: () => listSupportRechargeOrders(status),
+    queryKey: [...ORDERS_KEY, status, orderCursor ?? null],
+    queryFn: () =>
+      listSupportRechargeOrders(status, ORDER_PAGE_SIZE + 1, orderCursor),
   });
+  const visibleOrders = (orders.data ?? []).slice(0, ORDER_PAGE_SIZE);
+  const hasNextOrderPage = (orders.data?.length ?? 0) > ORDER_PAGE_SIZE;
   const refreshCodes = () =>
     queryClient.invalidateQueries({ queryKey: PAYMENT_CODES_KEY });
   const refreshOrders = () =>
@@ -451,7 +460,11 @@ export function SupportRechargePage() {
           <Space>
             <Select
               value={status}
-              onChange={setStatus}
+              onChange={(nextStatus) => {
+                setStatus(nextStatus);
+                setOrderPage(0);
+                setOrderCursors([undefined]);
+              }}
               style={{ width: 150 }}
               options={Object.entries(STATUS_LABELS).map(([value, label]) => ({
                 value,
@@ -474,10 +487,35 @@ export function SupportRechargePage() {
         <Table
           rowKey="id"
           columns={orderColumns}
-          dataSource={orders.data ?? []}
+          dataSource={visibleOrders}
           loading={orders.isLoading}
+          pagination={false}
           scroll={{ x: 980 }}
         />
+        <Space style={{ marginTop: 16 }}>
+          <Button
+            disabled={orderPage === 0 || orders.isFetching}
+            onClick={() => setOrderPage((page) => Math.max(0, page - 1))}
+          >
+            上一页
+          </Button>
+          <Typography.Text>第 {orderPage + 1} 页</Typography.Text>
+          <Button
+            disabled={!hasNextOrderPage || orders.isFetching}
+            onClick={() => {
+              const nextCursor = visibleOrders.at(-1)?.id;
+              if (!nextCursor) return;
+              setOrderCursors((cursors) => {
+                const next = cursors.slice(0, orderPage + 1);
+                next[orderPage + 1] = nextCursor;
+                return next;
+              });
+              setOrderPage((page) => page + 1);
+            }}
+          >
+            下一页
+          </Button>
+        </Space>
       </Card>
 
       <Modal

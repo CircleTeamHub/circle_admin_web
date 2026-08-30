@@ -277,6 +277,34 @@ describe("SupportRechargePage review safety", () => {
     );
   });
 
+  it("loads older recharge orders with the backend cursor", async () => {
+    const firstPage = Array.from({ length: 11 }, (_, index) =>
+      order(`P${index + 1}`),
+    );
+    renderPage(firstPage);
+    await screen.findByText("RC-P1");
+
+    expect(mockedListOrders).toHaveBeenCalledWith(
+      "WAITING_REVIEW",
+      11,
+      undefined,
+    );
+    expect(screen.getByText("RC-P10")).toBeInTheDocument();
+    expect(screen.queryByText("RC-P11")).not.toBeInTheDocument();
+
+    mockedListOrders.mockResolvedValue([order("P11"), order("P12")]);
+    fireEvent.click(screen.getByRole("button", { name: "下一页" }));
+
+    expect(await screen.findByText("RC-P11")).toBeInTheDocument();
+    expect(mockedListOrders).toHaveBeenLastCalledWith(
+      "WAITING_REVIEW",
+      11,
+      "P10",
+    );
+    expect(screen.getByRole("button", { name: "下一页" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "上一页" })).toBeEnabled();
+  });
+
   it("keeps every payment-code switch disabled while one update is pending", async () => {
     const pending = deferred<SupportRechargePaymentCode>();
     mockedToggleCode.mockReturnValue(pending.promise);

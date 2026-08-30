@@ -130,8 +130,10 @@ export function setSupportRechargePaymentCodeEnabled(
 export function listSupportRechargeOrders(
   status: RechargeOrderStatus = "WAITING_REVIEW",
   limit = 50,
+  cursor?: string,
 ) {
   const query = new URLSearchParams({ status, limit: String(limit) });
+  if (cursor) query.set("cursor", cursor);
   return apiClient<SupportRechargeOrder[]>(
     `/admin/support/recharge/orders?${query}`,
   );

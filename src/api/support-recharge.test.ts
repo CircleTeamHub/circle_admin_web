@@ -80,7 +80,7 @@ describe("support recharge admin API", () => {
   });
 
   it("passes explicit status filters and idempotency inputs", async () => {
-    await listSupportRechargeOrders("PROCESSING", 20);
+    await listSupportRechargeOrders("PROCESSING", 20, "order-cursor");
     await approveSupportRechargeOrder("order-1", {
       fulfillmentType: "COIN",
       paymentTransactionId: "trade-1",
@@ -89,7 +89,7 @@ describe("support recharge admin API", () => {
 
     expect(mockedApiClient).toHaveBeenNthCalledWith(
       1,
-      "/admin/support/recharge/orders?status=PROCESSING&limit=20",
+      "/admin/support/recharge/orders?status=PROCESSING&limit=20&cursor=order-cursor",
     );
     expect(mockedApiClient).toHaveBeenNthCalledWith(
       2,
