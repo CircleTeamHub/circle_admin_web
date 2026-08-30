@@ -96,6 +96,21 @@ export function createSupportRechargePaymentCode(payload: {
   );
 }
 
+export function updateSupportRechargePaymentCode(
+  id: string,
+  payload: {
+    label?: string;
+    objectKey?: string;
+    validFrom?: string;
+    validUntil?: string | null;
+  },
+) {
+  return apiClient<SupportRechargePaymentCode>(
+    `/admin/support/recharge/payment-codes/${encodeURIComponent(id)}`,
+    { method: "PATCH", body: JSON.stringify(payload) },
+  );
+}
+
 export function setSupportRechargePaymentCodeEnabled(
   id: string,
   enabled: boolean,

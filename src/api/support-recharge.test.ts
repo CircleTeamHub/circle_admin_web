@@ -5,6 +5,7 @@ import {
   listSupportRechargeOrders,
   rejectSupportRechargeOrder,
   setSupportRechargePaymentCodeEnabled,
+  updateSupportRechargePaymentCode,
 } from "./support-recharge";
 
 vi.mock("./client", () => ({ apiClient: vi.fn() }));
@@ -16,6 +17,9 @@ describe("support recharge admin API", () => {
 
   it("encodes order and payment-code identifiers", async () => {
     await setSupportRechargePaymentCodeEnabled("code/1", false);
+    await updateSupportRechargePaymentCode("code/1", {
+      objectKey: "chat/admin/new.png",
+    });
     await rejectSupportRechargeOrder("order/1", "未查到交易");
 
     expect(mockedApiClient).toHaveBeenNthCalledWith(
@@ -25,6 +29,14 @@ describe("support recharge admin API", () => {
     );
     expect(mockedApiClient).toHaveBeenNthCalledWith(
       2,
+      "/admin/support/recharge/payment-codes/code%2F1",
+      {
+        method: "PATCH",
+        body: JSON.stringify({ objectKey: "chat/admin/new.png" }),
+      },
+    );
+    expect(mockedApiClient).toHaveBeenNthCalledWith(
+      3,
       "/admin/support/recharge/orders/order%2F1/reject",
       { method: "POST", body: JSON.stringify({ reason: "未查到交易" }) },
     );

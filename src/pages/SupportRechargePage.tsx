@@ -1,5 +1,6 @@
 import {
   CheckCircleOutlined,
+  EditOutlined,
   PlusOutlined,
   ReloadOutlined,
   StopOutlined,
@@ -33,6 +34,7 @@ import {
   listSupportRechargePaymentCodes,
   rejectSupportRechargeOrder,
   setSupportRechargePaymentCodeEnabled,
+  updateSupportRechargePaymentCode,
   uploadSupportRechargeImage,
   type ApproveSupportRechargeOrderPayload,
   type RechargeFulfillmentType,
@@ -103,6 +105,8 @@ export function SupportRechargePage() {
   const [approvalForm] = Form.useForm<ApprovalForm>();
   const [rejectForm] = Form.useForm<{ reason: string }>();
   const [codeOpen, setCodeOpen] = useState(false);
+  const [editingCode, setEditingCode] =
+    useState<SupportRechargePaymentCode | null>(null);
   const [approving, setApproving] = useState<SupportRechargeOrder | null>(null);
   const [rejecting, setRejecting] = useState<SupportRechargeOrder | null>(null);
   const [status, setStatus] = useState<RechargeOrderStatus>("WAITING_REVIEW");
@@ -121,13 +125,23 @@ export function SupportRechargePage() {
   const refreshOrders = () =>
     queryClient.invalidateQueries({ queryKey: ORDERS_KEY });
 
-  const createCode = useMutation({
+  const saveCode = useMutation({
     mutationFn: async (values: PaymentCodeForm) => {
       const file = values.fileList[0]?.originFileObj;
-      if (!file) throw new Error("请选择收款码图片");
       const validFrom = toIso(values.validFrom);
       if (!validFrom) throw new Error("请选择正确的生效时间");
-      const objectKey = await uploadSupportRechargeImage(file);
+      const objectKey = file
+        ? await uploadSupportRechargeImage(file)
+        : undefined;
+      if (editingCode) {
+        return updateSupportRechargePaymentCode(editingCode.id, {
+          label: values.label.trim(),
+          validFrom,
+          validUntil: toIso(values.validUntil),
+          ...(objectKey ? { objectKey } : {}),
+        });
+      }
+      if (!objectKey) throw new Error("请选择收款码图片");
       return createSupportRechargePaymentCode({
         label: values.label.trim(),
         objectKey,
@@ -136,11 +150,13 @@ export function SupportRechargePage() {
       });
     },
     onSuccess: () => {
-      message.success("收款码已添加");
+      message.success(editingCode ? "收款码已更新" : "收款码已添加");
       setCodeOpen(false);
+      setEditingCode(null);
       codeForm.resetFields();
     },
-    onError: (error) => message.error(getErrorMessage(error, "添加收款码失败")),
+    onError: (error) =>
+      message.error(getErrorMessage(error, "保存收款码失败")),
     onSettled: refreshCodes,
   });
 
@@ -207,6 +223,30 @@ export function SupportRechargePage() {
           loading={toggleCode.isPending && toggleCode.variables?.id === row.id}
           onChange={(enabled) => toggleCode.mutate({ id: row.id, enabled })}
         />
+      ),
+    },
+    {
+      title: "操作",
+      width: 110,
+      render: (_, row) => (
+        <Button
+          size="small"
+          icon={<EditOutlined />}
+          onClick={() => {
+            setEditingCode(row);
+            codeForm.setFieldsValue({
+              label: row.label,
+              validFrom: toLocalDateTimeInput(row.validFrom),
+              validUntil: row.validUntil
+                ? toLocalDateTimeInput(row.validUntil)
+                : undefined,
+              fileList: [],
+            });
+            setCodeOpen(true);
+          }}
+        >
+          编辑/换图
+        </Button>
       ),
     },
   ];
@@ -330,6 +370,8 @@ export function SupportRechargePage() {
             type="primary"
             icon={<PlusOutlined />}
             onClick={() => {
+              setEditingCode(null);
+              codeForm.resetFields();
               setCodeOpen(true);
               codeForm.setFieldsValue({
                 validFrom: toLocalDateTimeInput(new Date()),
@@ -393,22 +435,30 @@ export function SupportRechargePage() {
       </Card>
 
       <Modal
-        title="新增收款码"
+        title={editingCode ? "编辑收款码" : "新增收款码"}
         open={codeOpen}
-        okText="上传并启用"
+        okText={editingCode ? "保存修改" : "上传并启用"}
         cancelText="取消"
-        confirmLoading={createCode.isPending}
-        onCancel={() => setCodeOpen(false)}
+        confirmLoading={saveCode.isPending}
+        onCancel={() => {
+          setCodeOpen(false);
+          setEditingCode(null);
+          codeForm.resetFields();
+        }}
         onOk={() =>
           void codeForm
             .validateFields()
-            .then((values) => createCode.mutate(values))
+            .then((values) => saveCode.mutate(values))
         }
       >
         <Alert
           type="warning"
           showIcon
-          message="请为收款码设置有效期；失效或停用后，机器人不会再向用户发送。"
+          message={
+            editingCode
+              ? "选择新图片即可替换；不选择则保留当前图片。修改只影响后续发送，不会改变历史聊天中的二维码。"
+              : "请为收款码设置有效期；失效或停用后，机器人不会再向用户发送。"
+          }
           style={{ marginBottom: 16 }}
         />
         <Form form={codeForm} layout="vertical">
@@ -429,7 +479,12 @@ export function SupportRechargePage() {
             label="收款码图片"
             valuePropName="fileList"
             getValueFromEvent={(event) => event?.fileList ?? []}
-            rules={[{ required: true, message: "请选择图片" }]}
+            rules={[
+              {
+                required: !editingCode,
+                message: "请选择图片",
+              },
+            ]}
           >
             <Upload
               accept="image/jpeg,image/png,image/webp"
@@ -437,9 +492,14 @@ export function SupportRechargePage() {
               beforeUpload={() => false}
               listType="picture"
             >
-              <Button>选择图片</Button>
+              <Button>{editingCode ? "选择新图片" : "选择图片"}</Button>
             </Upload>
           </Form.Item>
+          {editingCode?.previewUrl ? (
+            <Form.Item label="当前图片">
+              <Image src={editingCode.previewUrl} width={96} />
+            </Form.Item>
+          ) : null}
           <Form.Item
             name="validFrom"
             label="生效时间"
