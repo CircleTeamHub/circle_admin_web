@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { apiClient } from "./client";
 import {
   approveSupportRechargeOrder,
@@ -6,6 +6,7 @@ import {
   rejectSupportRechargeOrder,
   setSupportRechargePaymentCodeEnabled,
   updateSupportRechargePaymentCode,
+  uploadSupportRechargeImage,
 } from "./support-recharge";
 
 vi.mock("./client", () => ({ apiClient: vi.fn() }));
@@ -14,6 +15,42 @@ const mockedApiClient = vi.mocked(apiClient);
 
 describe("support recharge admin API", () => {
   beforeEach(() => mockedApiClient.mockReset());
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("uses a backend-safe filename for localized image uploads", async () => {
+    mockedApiClient.mockResolvedValue({
+      uploadUrl: "https://upload.example.test/object",
+      key: "chat/admin/code.png",
+      requiredHeaders: { "content-type": "image/png" },
+    });
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const file = new File(["image"], "微信收款码 (1).png", {
+      type: "image/png",
+    });
+    await expect(uploadSupportRechargeImage(file)).resolves.toBe(
+      "chat/admin/code.png",
+    );
+
+    expect(mockedApiClient).toHaveBeenCalledWith("/upload/presign", {
+      method: "POST",
+      body: JSON.stringify({
+        filename: "support-recharge.png",
+        contentType: "image/png",
+        sizeBytes: file.size,
+        folder: "chat",
+      }),
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://upload.example.test/object",
+      {
+        method: "PUT",
+        headers: { "content-type": "image/png" },
+        body: file,
+      },
+    );
+  });
 
   it("encodes order and payment-code identifiers", async () => {
     await setSupportRechargePaymentCodeEnabled("code/1", false);

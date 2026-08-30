@@ -64,10 +64,16 @@ export function listSupportRechargePaymentCodes() {
 }
 
 export async function uploadSupportRechargeImage(file: File): Promise<string> {
+  const extension =
+    {
+      "image/jpeg": "jpg",
+      "image/png": "png",
+      "image/webp": "webp",
+    }[file.type] ?? "bin";
   const presign = await apiClient<PresignUploadResult>("/upload/presign", {
     method: "POST",
     body: JSON.stringify({
-      filename: file.name,
+      filename: `support-recharge.${extension}`,
       contentType: file.type,
       sizeBytes: file.size,
       folder: "chat",

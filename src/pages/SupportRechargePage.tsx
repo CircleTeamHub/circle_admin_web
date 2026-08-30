@@ -26,7 +26,7 @@ import {
 } from "antd";
 import type { UploadFile } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   approveSupportRechargeOrder,
   createSupportRechargePaymentCode,
@@ -92,6 +92,49 @@ function toIso(value?: string): string | null {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
+function orderOutcome(row: SupportRechargeOrder) {
+  if (row.status === "REJECTED") {
+    return (
+      <Space orientation="vertical" size={0}>
+        <Typography.Text type="danger">
+          驳回：{row.rejectionReason || "未记录原因"}
+        </Typography.Text>
+        {row.reviewedBy ? (
+          <Typography.Text type="secondary">
+            审核人：{row.reviewedBy} · {formatDateTime(row.reviewedAt)}
+          </Typography.Text>
+        ) : null}
+      </Space>
+    );
+  }
+  if (row.status !== "APPROVED") return "-";
+
+  const payload = row.fulfillmentPayload;
+  const fulfillmentType = payload?.fulfillmentType ?? row.fulfillmentType;
+  const benefit =
+    fulfillmentType === "COIN"
+      ? `积分 ${payload?.coinAmount ?? "-"}`
+      : fulfillmentType === "MEMBERSHIP"
+        ? `会员 Lv.${payload?.membershipLevel ?? "-"}`
+        : "发放详情未记录";
+  return (
+    <Space orientation="vertical" size={0}>
+      {row.paymentTransactionID ? (
+        <Typography.Text copyable>{row.paymentTransactionID}</Typography.Text>
+      ) : null}
+      <Typography.Text>{benefit}</Typography.Text>
+      {payload?.note ? (
+        <Typography.Text type="secondary">备注：{payload.note}</Typography.Text>
+      ) : null}
+      {row.reviewedBy ? (
+        <Typography.Text type="secondary">
+          审核人：{row.reviewedBy} · {formatDateTime(row.reviewedAt)}
+        </Typography.Text>
+      ) : null}
+    </Space>
+  );
+}
+
 export function toLocalDateTimeInput(value: Date | string): string {
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return "";
@@ -111,6 +154,27 @@ export function SupportRechargePage() {
   const [rejecting, setRejecting] = useState<SupportRechargeOrder | null>(null);
   const [status, setStatus] = useState<RechargeOrderStatus>("WAITING_REVIEW");
   const fulfillmentType = Form.useWatch("fulfillmentType", approvalForm);
+
+  useEffect(() => {
+    if (!approving) return;
+    const existing = approving.fulfillmentPayload;
+    approvalForm.resetFields();
+    approvalForm.setFieldsValue(
+      existing
+        ? {
+            ...existing,
+            note: existing.note ?? undefined,
+          }
+        : {
+            fulfillmentType:
+              approving.requestKind === "COIN"
+                ? "COIN"
+                : approving.requestKind === "MEMBERSHIP"
+                  ? "MEMBERSHIP"
+                  : undefined,
+          },
+    );
+  }, [approvalForm, approving]);
 
   const paymentCodes = useQuery({
     queryKey: PAYMENT_CODES_KEY,
@@ -255,7 +319,7 @@ export function SupportRechargePage() {
     {
       title: "申请",
       render: (_, row) => (
-        <Space direction="vertical" size={0}>
+        <Space orientation="vertical" size={0}>
           <Typography.Text copyable>{row.orderNo}</Typography.Text>
           <Typography.Text type="secondary">
             {REQUEST_LABELS[row.requestKind]}
@@ -294,25 +358,7 @@ export function SupportRechargePage() {
               type="primary"
               size="small"
               icon={<CheckCircleOutlined />}
-              onClick={() => {
-                setApproving(row);
-                const existing = row.fulfillmentPayload;
-                approvalForm.setFieldsValue(
-                  existing
-                    ? {
-                        ...existing,
-                        note: existing.note ?? undefined,
-                      }
-                    : {
-                        fulfillmentType:
-                          row.requestKind === "COIN"
-                            ? "COIN"
-                            : row.requestKind === "MEMBERSHIP"
-                              ? "MEMBERSHIP"
-                              : undefined,
-                      },
-                );
-              }}
+              onClick={() => setApproving(row)}
             >
               {row.status === "PROCESSING" ? "继续发放" : "核对并发放"}
             </Button>
@@ -321,17 +367,16 @@ export function SupportRechargePage() {
                 danger
                 size="small"
                 icon={<StopOutlined />}
-                onClick={() => setRejecting(row)}
+                onClick={() => {
+                  rejectForm.resetFields();
+                  setRejecting(row);
+                }}
               >
                 驳回
               </Button>
             ) : null}
           </Space>
-        ) : row.paymentTransactionID ? (
-          <Typography.Text copyable>{row.paymentTransactionID}</Typography.Text>
-        ) : (
-          "-"
-        ),
+        ) : orderOutcome(row),
     },
   ];
 
@@ -355,7 +400,7 @@ export function SupportRechargePage() {
   };
 
   return (
-    <Space direction="vertical" size="large" style={{ width: "100%" }}>
+    <Space orientation="vertical" size="large" style={{ width: "100%" }}>
       <div>
         <Typography.Title level={2}>充值客服</Typography.Title>
         <Typography.Paragraph type="secondary">
@@ -440,7 +485,12 @@ export function SupportRechargePage() {
         okText={editingCode ? "保存修改" : "上传并启用"}
         cancelText="取消"
         confirmLoading={saveCode.isPending}
+        cancelButtonProps={{ disabled: saveCode.isPending }}
+        closable={!saveCode.isPending}
+        keyboard={!saveCode.isPending}
+        mask={{ closable: !saveCode.isPending }}
         onCancel={() => {
+          if (saveCode.isPending) return;
           setCodeOpen(false);
           setEditingCode(null);
           codeForm.resetFields();
@@ -519,13 +569,21 @@ export function SupportRechargePage() {
         okText="确认付款并发放"
         cancelText="取消"
         confirmLoading={approve.isPending}
-        onCancel={() => setApproving(null)}
+        cancelButtonProps={{ disabled: approve.isPending }}
+        closable={!approve.isPending}
+        keyboard={!approve.isPending}
+        mask={{ closable: !approve.isPending }}
+        onCancel={() => {
+          if (approve.isPending) return;
+          setApproving(null);
+          approvalForm.resetFields();
+        }}
         onOk={() => void submitApproval()}
       >
         <Alert
           type="warning"
           showIcon
-          message="请先在支付平台核对交易号、付款人和金额。付款截图本身不能证明到账。"
+          title="请先在支付平台核对交易号、付款人和金额。付款截图本身不能证明到账。"
           style={{ marginBottom: 16 }}
         />
         <Form form={approvalForm} layout="vertical">
@@ -556,7 +614,12 @@ export function SupportRechargePage() {
               label="积分数量"
               rules={[{ required: true, message: "请输入积分数量" }]}
             >
-              <InputNumber min={1} precision={0} style={{ width: "100%" }} />
+              <InputNumber
+                min={1}
+                max={1_000_000}
+                precision={0}
+                style={{ width: "100%" }}
+              />
             </Form.Item>
           ) : null}
           {fulfillmentType === "MEMBERSHIP" ? (
@@ -586,7 +649,15 @@ export function SupportRechargePage() {
         okButtonProps={{ danger: true }}
         cancelText="取消"
         confirmLoading={reject.isPending}
-        onCancel={() => setRejecting(null)}
+        cancelButtonProps={{ disabled: reject.isPending }}
+        closable={!reject.isPending}
+        keyboard={!reject.isPending}
+        mask={{ closable: !reject.isPending }}
+        onCancel={() => {
+          if (reject.isPending) return;
+          setRejecting(null);
+          rejectForm.resetFields();
+        }}
         onOk={() =>
           void rejectForm
             .validateFields()
@@ -603,10 +674,11 @@ export function SupportRechargePage() {
             label="告知用户的原因"
             rules={[
               { required: true, whitespace: true, message: "请输入驳回原因" },
+              { max: 300, message: "驳回原因最多 300 字" },
             ]}
           >
             <Input.TextArea
-              maxLength={500}
+              maxLength={300}
               placeholder="例如：支付平台未查询到该交易，请重新核对后提交"
             />
           </Form.Item>
