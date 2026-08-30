@@ -26,17 +26,22 @@ describe("AppLayout", () => {
               path="fancy-numbers"
               element={<div>Fancy numbers destination</div>}
             />
+            <Route
+              path="support-recharge"
+              element={<div>Recharge destination</div>}
+            />
           </Route>
         </Routes>
       </MemoryRouter>,
     );
 
-    fireEvent.click(
-      screen.getByRole("menuitem", { name: /热门靓号/ }),
-    );
+    fireEvent.click(screen.getByRole("menuitem", { name: /热门靓号/ }));
 
     expect(
       await screen.findByText("Fancy numbers destination"),
     ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("menuitem", { name: /充值审核/ }));
+    expect(await screen.findByText("Recharge destination")).toBeInTheDocument();
   });
 });

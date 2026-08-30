@@ -3,6 +3,7 @@ import {
   CommentOutlined,
   CustomerServiceOutlined,
   LogoutOutlined,
+  PayCircleOutlined,
   SafetyCertificateOutlined,
   StarOutlined,
   TeamOutlined,
@@ -30,11 +31,32 @@ export function AppLayout({ user }: { user: AuthUser }) {
           onClick={({ key }) => navigate(key)}
           items={[
             { key: "/", icon: <DashboardOutlined />, label: "Dashboard" },
-            { key: "/reports", icon: <SafetyCertificateOutlined />, label: "举报审核" },
-            { key: "/community", icon: <CommentOutlined />, label: "圈子与群聊" },
+            {
+              key: "/reports",
+              icon: <SafetyCertificateOutlined />,
+              label: "举报审核",
+            },
+            {
+              key: "/community",
+              icon: <CommentOutlined />,
+              label: "圈子与群聊",
+            },
             { key: "/users", icon: <TeamOutlined />, label: "用户管理" },
-            { key: "/fancy-numbers", icon: <StarOutlined />, label: "热门靓号" },
-            { key: "/support-agents", icon: <CustomerServiceOutlined />, label: "客服配置" },
+            {
+              key: "/fancy-numbers",
+              icon: <StarOutlined />,
+              label: "热门靓号",
+            },
+            {
+              key: "/support-agents",
+              icon: <CustomerServiceOutlined />,
+              label: "客服配置",
+            },
+            {
+              key: "/support-recharge",
+              icon: <PayCircleOutlined />,
+              label: "充值审核",
+            },
             { key: "/system", icon: <ToolOutlined />, label: "系统状态" },
           ]}
         />
