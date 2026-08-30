@@ -75,6 +75,8 @@ test('admin release image pins its nginx base by digest', () => {
 });
 
 test('admin runtime images install current Alpine security updates', () => {
+  const workflow = read('.github/workflows/build-image.yml');
+
   for (const filename of ['Dockerfile', 'Dockerfile.release']) {
     const dockerfile = read(filename);
 
@@ -86,9 +88,29 @@ test('admin runtime images install current Alpine security updates', () => {
   }
 
   assert.match(
-    read('.github/workflows/build-image.yml'),
+    workflow,
     /^\s+no-cache-filters: runtime$/m,
     'the release build must re-run the runtime security-update layer',
+  );
+  assert.match(
+    workflow,
+    /^\s+- name: Check for existing commit image$/m,
+    'rerunning a commit must detect its already-published immutable image',
+  );
+  assert.match(
+    workflow,
+    /^\s+if: steps\.existing\.outputs\.exists != 'true'$/m,
+    'an existing commit image must not be overwritten by mutable packages',
+  );
+  assert.match(
+    workflow,
+    /elif grep -Eiq 'manifest unknown\|not found'/,
+    'only an explicit missing-image response may trigger a rebuild',
+  );
+  assert.match(
+    read('README.md'),
+    /docker build --no-cache-filter runtime -t circle-admin-web:local \./,
+    'manual builds must refresh the runtime security-update layer',
   );
 });
 

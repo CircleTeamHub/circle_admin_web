@@ -73,7 +73,24 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Check for existing commit image
+        id: existing
+        env:
+          IMAGE: ${{ steps.meta.outputs.repo }}:sha-${{ github.sha }}
+        run: |
+          error_file="$(mktemp)"
+          trap 'rm -f "$error_file"' EXIT
+          if docker buildx imagetools inspect "$IMAGE" >/dev/null 2>"$error_file"; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          elif grep -Eiq 'manifest unknown|not found' "$error_file"; then
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          else
+            cat "$error_file" >&2
+            exit 1
+          fi
+
       - name: Build and push image
+        if: steps.existing.outputs.exists != 'true'
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .

@@ -1,7 +1,7 @@
 # CI 发版专用(.github/workflows/build-image.yml):dist 已在 GitHub runner 上
 # 原生构建好(静态产物与 CPU 架构无关),镜像只做 nginx 装配 —— 避免在 QEMU
 # 模拟的 arm64 里跑 npm ci + vite build(慢一个数量级)。
-# 服务器上的手动构建路径(DEPLOY.md)仍用 ./Dockerfile,行为不变。
+# README 中的手动构建路径仍使用 ./Dockerfile。
 FROM nginx:1.31.4-alpine@sha256:db35bfc6b2951e7f8a72db5db120288c127ffaeeb4a6d4b95a26fead017d5913 AS runtime
 RUN apk upgrade --no-cache
 
