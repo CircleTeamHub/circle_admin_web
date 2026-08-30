@@ -97,9 +97,7 @@ jobs:
           file: Dockerfile.release
           platforms: linux/arm64
           push: true
-          tags: |
-            ${{ steps.meta.outputs.repo }}:sha-${{ github.sha }}
-            ${{ steps.meta.outputs.repo }}:main
+          tags: ${{ steps.meta.outputs.repo }}:sha-${{ github.sha }}
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
@@ -107,3 +105,15 @@ jobs:
           no-cache-filters: runtime
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Promote current main image
+        env:
+          SHA_IMAGE: ${{ steps.meta.outputs.repo }}:sha-${{ github.sha }}
+          MAIN_IMAGE: ${{ steps.meta.outputs.repo }}:main
+        run: |
+          remote_main="$(git ls-remote origin refs/heads/main | cut -f1)"
+          if [ "$remote_main" != "$GITHUB_SHA" ]; then
+            echo "Skipping main promotion because $GITHUB_SHA is no longer current."
+            exit 0
+          fi
+          docker buildx imagetools create --tag "$MAIN_IMAGE" "$SHA_IMAGE"

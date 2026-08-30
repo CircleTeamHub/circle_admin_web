@@ -104,6 +104,26 @@ test('admin runtime images install current Alpine security updates', () => {
   );
   assert.match(
     workflow,
+    /^\s+tags: \$\{\{ steps\.meta\.outputs\.repo \}\}:sha-\$\{\{ github\.sha \}\}$/m,
+    'the build step must publish only the immutable commit image',
+  );
+  assert.match(
+    workflow,
+    /^\s+- name: Promote current main image$/m,
+    'reruns must repair a missing or stale main tag from the commit image',
+  );
+  assert.match(
+    workflow,
+    /git ls-remote origin refs\/heads\/main/,
+    'main promotion must verify the commit is still the current branch head',
+  );
+  assert.match(
+    workflow,
+    /docker buildx imagetools create --tag "\$MAIN_IMAGE" "\$SHA_IMAGE"/,
+    'main promotion must reuse the immutable commit manifest',
+  );
+  assert.match(
+    workflow,
     /elif grep -Eiq 'manifest unknown\|not found'/,
     'only an explicit missing-image response may trigger a rebuild',
   );
