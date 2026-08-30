@@ -87,5 +87,6 @@ jobs:
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
           provenance: false
+          no-cache-filters: runtime
           cache-from: type=gha
           cache-to: type=gha,mode=max

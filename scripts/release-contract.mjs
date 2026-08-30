@@ -62,10 +62,15 @@ test('admin pull requests run application and release contract checks', () => {
 });
 
 test('admin release image pins its nginx base by digest', () => {
-  const dockerfile = read('Dockerfile.release');
   const dockerignore = read('Dockerfile.release.dockerignore');
 
-  assert.match(dockerfile, /^FROM nginx:[^@\s]+@sha256:[0-9a-f]{64}$/m);
+  for (const filename of ['Dockerfile', 'Dockerfile.release']) {
+    assert.match(
+      read(filename),
+      /^FROM nginx:[^@\s]+@sha256:[0-9a-f]{64} AS runtime$/m,
+      `${filename} must pin its runtime nginx base by digest`,
+    );
+  }
   assert.doesNotMatch(dockerignore, /^dist\/?$/m);
 });
 
@@ -79,6 +84,12 @@ test('admin runtime images install current Alpine security updates', () => {
       `${filename} must upgrade fixable Alpine packages during image build`,
     );
   }
+
+  assert.match(
+    read('.github/workflows/build-image.yml'),
+    /^\s+no-cache-filters: runtime$/m,
+    'the release build must re-run the runtime security-update layer',
+  );
 });
 
 test('admin workflow and server use the same strict version format', () => {
