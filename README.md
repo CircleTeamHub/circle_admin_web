@@ -54,7 +54,7 @@ VITE_ALERTMANAGER_URL=https://alertmanager.example.com
 npm test
 npm run typecheck
 npm run build
-docker build -t circle-admin-web:local .
+docker build --no-cache-filter runtime -t circle-admin-web:local .
 ```
 
 用户管理的重点冒烟路径是：搜索测试用户、查看遮罩详情、用工单原因查看一个敏感

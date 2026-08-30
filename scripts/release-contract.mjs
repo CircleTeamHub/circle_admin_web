@@ -62,11 +62,76 @@ test('admin pull requests run application and release contract checks', () => {
 });
 
 test('admin release image pins its nginx base by digest', () => {
-  const dockerfile = read('Dockerfile.release');
   const dockerignore = read('Dockerfile.release.dockerignore');
 
-  assert.match(dockerfile, /^FROM nginx:[^@\s]+@sha256:[0-9a-f]{64}$/m);
+  for (const filename of ['Dockerfile', 'Dockerfile.release']) {
+    assert.match(
+      read(filename),
+      /^FROM nginx:[^@\s]+@sha256:[0-9a-f]{64} AS runtime$/m,
+      `${filename} must pin its runtime nginx base by digest`,
+    );
+  }
   assert.doesNotMatch(dockerignore, /^dist\/?$/m);
+});
+
+test('admin runtime images install current Alpine security updates', () => {
+  const workflow = read('.github/workflows/build-image.yml');
+
+  for (const filename of ['Dockerfile', 'Dockerfile.release']) {
+    const dockerfile = read(filename);
+
+    assert.match(
+      dockerfile,
+      /^RUN apk upgrade --no-cache$/m,
+      `${filename} must upgrade fixable Alpine packages during image build`,
+    );
+  }
+
+  assert.match(
+    workflow,
+    /^\s+no-cache-filters: runtime$/m,
+    'the release build must re-run the runtime security-update layer',
+  );
+  assert.match(
+    workflow,
+    /^\s+- name: Check for existing commit image$/m,
+    'rerunning a commit must detect its already-published immutable image',
+  );
+  assert.match(
+    workflow,
+    /^\s+if: steps\.existing\.outputs\.exists != 'true'$/m,
+    'an existing commit image must not be overwritten by mutable packages',
+  );
+  assert.match(
+    workflow,
+    /^\s+tags: \$\{\{ steps\.meta\.outputs\.repo \}\}:sha-\$\{\{ github\.sha \}\}$/m,
+    'the build step must publish only the immutable commit image',
+  );
+  assert.match(
+    workflow,
+    /^\s+- name: Promote current main image$/m,
+    'reruns must repair a missing or stale main tag from the commit image',
+  );
+  assert.match(
+    workflow,
+    /git ls-remote origin refs\/heads\/main/,
+    'main promotion must verify the commit is still the current branch head',
+  );
+  assert.match(
+    workflow,
+    /docker buildx imagetools create --tag "\$MAIN_IMAGE" "\$SHA_IMAGE"/,
+    'main promotion must reuse the immutable commit manifest',
+  );
+  assert.match(
+    workflow,
+    /elif grep -Eiq 'manifest unknown\|not found'/,
+    'only an explicit missing-image response may trigger a rebuild',
+  );
+  assert.match(
+    read('README.md'),
+    /docker build --no-cache-filter runtime -t circle-admin-web:local \./,
+    'manual builds must refresh the runtime security-update layer',
+  );
 });
 
 test('admin workflow and server use the same strict version format', () => {

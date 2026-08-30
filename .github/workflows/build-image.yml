@@ -73,19 +73,47 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Check for existing commit image
+        id: existing
+        env:
+          IMAGE: ${{ steps.meta.outputs.repo }}:sha-${{ github.sha }}
+        run: |
+          error_file="$(mktemp)"
+          trap 'rm -f "$error_file"' EXIT
+          if docker buildx imagetools inspect "$IMAGE" >/dev/null 2>"$error_file"; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          elif grep -Eiq 'manifest unknown|not found' "$error_file"; then
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          else
+            cat "$error_file" >&2
+            exit 1
+          fi
+
       - name: Build and push image
+        if: steps.existing.outputs.exists != 'true'
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
           file: Dockerfile.release
           platforms: linux/arm64
           push: true
-          tags: |
-            ${{ steps.meta.outputs.repo }}:sha-${{ github.sha }}
-            ${{ steps.meta.outputs.repo }}:main
+          tags: ${{ steps.meta.outputs.repo }}:sha-${{ github.sha }}
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
           provenance: false
+          no-cache-filters: runtime
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Promote current main image
+        env:
+          SHA_IMAGE: ${{ steps.meta.outputs.repo }}:sha-${{ github.sha }}
+          MAIN_IMAGE: ${{ steps.meta.outputs.repo }}:main
+        run: |
+          remote_main="$(git ls-remote origin refs/heads/main | cut -f1)"
+          if [ "$remote_main" != "$GITHUB_SHA" ]; then
+            echo "Skipping main promotion because $GITHUB_SHA is no longer current."
+            exit 0
+          fi
+          docker buildx imagetools create --tag "$MAIN_IMAGE" "$SHA_IMAGE"
