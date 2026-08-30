@@ -1,4 +1,8 @@
-import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
+import {
+  QueryClient,
+  QueryClientProvider,
+  useQuery,
+} from "@tanstack/react-query";
 import { ConfigProvider, Spin } from "antd";
 import zhCN from "antd/locale/zh_CN";
 import { useEffect, useState } from "react";
@@ -6,15 +10,12 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { getMe } from "../api/auth";
 import { AppLayout } from "../components/AppLayout";
 import { RequireAdmin } from "../auth/RequireAdmin";
-import {
-  clearSession,
-  getSession,
-  subscribeSession,
-} from "../auth/session";
+import { clearSession, getSession, subscribeSession } from "../auth/session";
 import { DashboardPage } from "../pages/DashboardPage";
 import { CommunityPage } from "../pages/CommunityPage";
 import { FancyNumbersPage } from "../pages/FancyNumbersPage";
 import { SupportAgentsPage } from "../pages/SupportAgentsPage";
+import { SupportRechargePage } from "../pages/SupportRechargePage";
 import { LoginPage } from "../pages/LoginPage";
 import { ReportsPage } from "../pages/ReportsPage";
 import { SystemStatusPage } from "../pages/SystemStatusPage";
@@ -32,10 +33,7 @@ const queryClient = new QueryClient({
 
 function AdminRoutes() {
   const [session, setSession] = useState(getSession);
-  useEffect(
-    () => subscribeSession(() => setSession(getSession())),
-    [],
-  );
+  useEffect(() => subscribeSession(() => setSession(getSession())), []);
   const me = useQuery({
     queryKey: ["me"],
     queryFn: getMe,
@@ -68,6 +66,7 @@ function AdminRoutes() {
             <Route path="community" element={<CommunityPage />} />
             <Route path="fancy-numbers" element={<FancyNumbersPage />} />
             <Route path="support-agents" element={<SupportAgentsPage />} />
+            <Route path="support-recharge" element={<SupportRechargePage />} />
             <Route path="users" element={<UsersPage />} />
             <Route
               path="users/:userId"
