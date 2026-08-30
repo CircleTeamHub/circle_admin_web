@@ -10,10 +10,15 @@ import {
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   approveSupportRechargeOrder,
+  createSupportRechargePaymentCode,
   listSupportRechargeOrders,
   listSupportRechargePaymentCodes,
   rejectSupportRechargeOrder,
+  setSupportRechargePaymentCodeEnabled,
+  updateSupportRechargePaymentCode,
+  uploadSupportRechargeImage,
   type SupportRechargeOrder,
+  type SupportRechargePaymentCode,
 } from "../api/support-recharge";
 import { SupportRechargePage } from "./SupportRechargePage";
 
@@ -34,9 +39,30 @@ vi.mock("../api/support-recharge", async (importOriginal) => {
 });
 
 const mockedApprove = vi.mocked(approveSupportRechargeOrder);
+const mockedCreateCode = vi.mocked(createSupportRechargePaymentCode);
 const mockedListOrders = vi.mocked(listSupportRechargeOrders);
 const mockedListCodes = vi.mocked(listSupportRechargePaymentCodes);
 const mockedReject = vi.mocked(rejectSupportRechargeOrder);
+const mockedToggleCode = vi.mocked(setSupportRechargePaymentCodeEnabled);
+const mockedUpdateCode = vi.mocked(updateSupportRechargePaymentCode);
+const mockedUpload = vi.mocked(uploadSupportRechargeImage);
+
+function paymentCode(
+  id: string,
+  enabled: boolean,
+): SupportRechargePaymentCode {
+  return {
+    id,
+    label: `收款码 ${id}`,
+    objectKey: `chat/${id}.png`,
+    validFrom: "2026-08-29T09:00:00.000Z",
+    validUntil: null,
+    enabled,
+    previewUrl: null,
+    createdAt: "2026-08-29T09:00:00.000Z",
+    updatedAt: "2026-08-29T09:00:00.000Z",
+  };
+}
 
 function order(
   id: string,
@@ -103,12 +129,19 @@ function deferred<T>() {
 describe("SupportRechargePage review safety", () => {
   beforeEach(() => {
     mockedApprove.mockReset();
+    mockedCreateCode.mockReset();
     mockedListOrders.mockReset();
     mockedListCodes.mockReset();
     mockedReject.mockReset();
+    mockedToggleCode.mockReset();
+    mockedUpdateCode.mockReset();
+    mockedUpload.mockReset();
     mockedListCodes.mockResolvedValue([]);
     mockedApprove.mockResolvedValue(order("approved", { status: "APPROVED" }));
+    mockedCreateCode.mockResolvedValue(paymentCode("created", true));
     mockedReject.mockResolvedValue(order("rejected", { status: "REJECTED" }));
+    mockedUpdateCode.mockResolvedValue(paymentCode("updated", true));
+    mockedUpload.mockResolvedValue("chat/uploaded.png");
   });
 
   it("does not carry an approval draft into another order", async () => {
@@ -179,6 +212,12 @@ describe("SupportRechargePage review safety", () => {
     );
 
     await waitFor(() => expect(mockedApprove).toHaveBeenCalledTimes(1));
+    expect(mockedApprove).toHaveBeenCalledWith("A", {
+      fulfillmentType: "COIN",
+      paymentTransactionId: "trade-A",
+      coinAmount: 100,
+      note: undefined,
+    });
     expect(screen.getByRole("button", { name: /取\s*消/ })).toBeDisabled();
 
     await act(async () => {
@@ -189,6 +228,179 @@ describe("SupportRechargePage review safety", () => {
         screen.getByText("核对并发放 · RC-A"),
       ).not.toBeVisible(),
     );
+  });
+
+  it("submits the saved membership payload when resuming fulfillment", async () => {
+    renderPage([
+      order("processing", {
+        requestKind: "MEMBERSHIP",
+        status: "PROCESSING",
+        fulfillmentType: "MEMBERSHIP",
+        fulfillmentPayload: {
+          fulfillmentType: "MEMBERSHIP",
+          paymentTransactionId: "trade-membership",
+          membershipLevel: 3,
+          note: "已核对",
+        },
+      }),
+    ]);
+    await screen.findByText("RC-processing");
+
+    fireEvent.click(
+      rowFor("RC-processing").getByRole("button", { name: /继续发放/ }),
+    );
+    expect(await screen.findByLabelText("会员等级")).toHaveValue("3");
+    fireEvent.click(screen.getByRole("button", { name: "确认付款并发放" }));
+
+    await waitFor(() =>
+      expect(mockedApprove).toHaveBeenCalledWith("processing", {
+        fulfillmentType: "MEMBERSHIP",
+        paymentTransactionId: "trade-membership",
+        membershipLevel: 3,
+        note: "已核对",
+      }),
+    );
+  });
+
+  it("trims the user-facing rejection reason before submitting", async () => {
+    renderPage([order("A")]);
+    await screen.findByText("RC-A");
+
+    fireEvent.click(rowFor("RC-A").getByRole("button", { name: /驳回/ }));
+    fireEvent.change(screen.getByLabelText("告知用户的原因"), {
+      target: { value: "  支付平台未查到交易  " },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "确认驳回" }));
+
+    await waitFor(() =>
+      expect(mockedReject).toHaveBeenCalledWith("A", "支付平台未查到交易"),
+    );
+  });
+
+  it("keeps every payment-code switch disabled while one update is pending", async () => {
+    const pending = deferred<SupportRechargePaymentCode>();
+    mockedToggleCode.mockReturnValue(pending.promise);
+    mockedListCodes.mockResolvedValue([
+      paymentCode("A", true),
+      paymentCode("B", false),
+    ]);
+    renderPage([]);
+    await screen.findByText("收款码 A");
+
+    const switches = screen.getAllByRole("switch");
+    fireEvent.click(switches[0]);
+    await waitFor(() =>
+      expect(mockedToggleCode).toHaveBeenCalledWith("A", false),
+    );
+    expect(switches[0]).toBeDisabled();
+    expect(switches[1]).toBeDisabled();
+
+    await act(async () => {
+      pending.resolve(paymentCode("A", false));
+    });
+  });
+
+  it("uploads and creates a payment code with the exact form payload", async () => {
+    renderPage([]);
+    await screen.findByText("充值申请");
+    fireEvent.click(screen.getByRole("button", { name: /新增收款码/ }));
+
+    fireEvent.change(screen.getByLabelText("支付方式说明"), {
+      target: { value: "  支付宝尾号 1234  " },
+    });
+    fireEvent.change(screen.getByLabelText("生效时间"), {
+      target: { value: "2026-08-29T10:00" },
+    });
+    const file = new File(["image"], "收款码.png", { type: "image/png" });
+    const fileInput = document.querySelector<HTMLInputElement>(
+      'input[type="file"]',
+    );
+    if (!fileInput) throw new Error("Missing payment-code file input");
+    fireEvent.change(fileInput, { target: { files: [file] } });
+    await screen.findByText("收款码.png");
+    fireEvent.click(screen.getByRole("button", { name: "上传并启用" }));
+
+    await waitFor(() =>
+      expect(mockedUpload).toHaveBeenCalledWith(
+        expect.objectContaining({ name: "收款码.png", type: "image/png" }),
+      ),
+    );
+    expect(mockedCreateCode).toHaveBeenCalledWith({
+      label: "支付宝尾号 1234",
+      objectKey: "chat/uploaded.png",
+      validFrom: new Date("2026-08-29T10:00").toISOString(),
+      validUntil: null,
+    });
+  });
+
+  it("updates payment-code metadata without replacing its image", async () => {
+    mockedListCodes.mockResolvedValue([paymentCode("A", true)]);
+    renderPage([]);
+    await screen.findByText("收款码 A");
+    fireEvent.click(screen.getByRole("button", { name: /编辑\/换图/ }));
+
+    fireEvent.change(screen.getByLabelText("支付方式说明"), {
+      target: { value: "  新说明  " },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存修改" }));
+
+    await waitFor(() =>
+      expect(mockedUpdateCode).toHaveBeenCalledWith("A", {
+        label: "新说明",
+        validFrom: "2026-08-29T09:00:00.000Z",
+        validUntil: null,
+      }),
+    );
+    expect(mockedUpload).not.toHaveBeenCalled();
+  });
+
+  it("uploads a replacement image when editing a payment code", async () => {
+    mockedListCodes.mockResolvedValue([paymentCode("A", true)]);
+    renderPage([]);
+    await screen.findByText("收款码 A");
+    fireEvent.click(screen.getByRole("button", { name: /编辑\/换图/ }));
+
+    const replacement = new File(["replacement"], "新收款码.webp", {
+      type: "image/webp",
+    });
+    const fileInput = document.querySelector<HTMLInputElement>(
+      'input[type="file"]',
+    );
+    if (!fileInput) throw new Error("Missing payment-code file input");
+    fireEvent.change(fileInput, { target: { files: [replacement] } });
+    await screen.findByText("新收款码.webp");
+    fireEvent.click(screen.getByRole("button", { name: "保存修改" }));
+
+    await waitFor(() =>
+      expect(mockedUpdateCode).toHaveBeenCalledWith("A", {
+        label: "收款码 A",
+        validFrom: "2026-08-29T09:00:00.000Z",
+        validUntil: null,
+        objectKey: "chat/uploaded.png",
+      }),
+    );
+    expect(mockedUpload).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "新收款码.webp", type: "image/webp" }),
+    );
+  });
+
+  it("keeps payment-code edits visible after a save failure", async () => {
+    mockedListCodes.mockResolvedValue([paymentCode("A", true)]);
+    mockedUpdateCode.mockRejectedValue(new Error("conflict"));
+    renderPage([]);
+    await screen.findByText("收款码 A");
+    fireEvent.click(screen.getByRole("button", { name: /编辑\/换图/ }));
+
+    fireEvent.change(screen.getByLabelText("支付方式说明"), {
+      target: { value: "待重试说明" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存修改" }));
+
+    await waitFor(() => expect(mockedUpdateCode).toHaveBeenCalledTimes(1));
+    expect(
+      screen.getByRole("button", { name: "保存修改" }),
+    ).toBeEnabled();
+    expect(screen.getByLabelText("支付方式说明")).toHaveValue("待重试说明");
   });
 
   it("shows fulfillment and rejection details for audit history", async () => {

@@ -284,6 +284,7 @@ export function SupportRechargePage() {
       render: (_, row) => (
         <Switch
           checked={row.enabled}
+          disabled={toggleCode.isPending}
           loading={toggleCode.isPending && toggleCode.variables?.id === row.id}
           onChange={(enabled) => toggleCode.mutate({ id: row.id, enabled })}
         />
@@ -504,7 +505,7 @@ export function SupportRechargePage() {
         <Alert
           type="warning"
           showIcon
-          message={
+          title={
             editingCode
               ? "选择新图片即可替换；不选择则保留当前图片。修改只影响后续发送，不会改变历史聊天中的二维码。"
               : "请为收款码设置有效期；失效或停用后，机器人不会再向用户发送。"
