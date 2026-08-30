@@ -2,7 +2,6 @@ import { apiClient } from "./client";
 
 export type RechargeRequestKind =
   | "GENERAL"
-  | "AVATAR_FRAME"
   | "COIN"
   | "MEMBERSHIP";
 export type RechargeOrderStatus =
@@ -11,7 +10,7 @@ export type RechargeOrderStatus =
   | "PROCESSING"
   | "APPROVED"
   | "REJECTED";
-export type RechargeFulfillmentType = "COIN" | "MEMBERSHIP" | "AVATAR_FRAME";
+export type RechargeFulfillmentType = "COIN" | "MEMBERSHIP";
 
 export interface SupportRechargePaymentCode {
   id: string;
@@ -122,8 +121,6 @@ export interface ApproveSupportRechargeOrderPayload {
   paymentTransactionId: string;
   coinAmount?: number;
   membershipLevel?: number;
-  frameId?: string;
-  frameExpiresAt?: string | null;
   note?: string;
 }
 

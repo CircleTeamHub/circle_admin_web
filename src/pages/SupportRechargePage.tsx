@@ -26,7 +26,6 @@ import {
 import type { UploadFile } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useState } from "react";
-import { listAvatarFrameAssets } from "../api/avatar-frames";
 import {
   approveSupportRechargeOrder,
   createSupportRechargePaymentCode,
@@ -66,7 +65,6 @@ const STATUS_COLORS: Record<RechargeOrderStatus, string> = {
 
 const REQUEST_LABELS = {
   GENERAL: "充值咨询",
-  AVATAR_FRAME: "头像框",
   COIN: "积分",
   MEMBERSHIP: "会员",
 } as const;
@@ -83,8 +81,6 @@ type ApprovalForm = {
   fulfillmentType: RechargeFulfillmentType;
   coinAmount?: number;
   membershipLevel?: number;
-  frameId?: string;
-  frameExpiresAt?: string;
   note?: string;
 };
 
@@ -120,12 +116,6 @@ export function SupportRechargePage() {
     queryKey: [...ORDERS_KEY, status],
     queryFn: () => listSupportRechargeOrders(status),
   });
-  const frames = useQuery({
-    queryKey: ["avatarFrameAssets"],
-    queryFn: listAvatarFrameAssets,
-    enabled: !!approving && fulfillmentType === "AVATAR_FRAME",
-  });
-
   const refreshCodes = () =>
     queryClient.invalidateQueries({ queryKey: PAYMENT_CODES_KEY });
   const refreshOrders = () =>
@@ -271,9 +261,6 @@ export function SupportRechargePage() {
                   existing
                     ? {
                         ...existing,
-                        frameExpiresAt: existing.frameExpiresAt
-                          ? toLocalDateTimeInput(existing.frameExpiresAt)
-                          : undefined,
                         note: existing.note ?? undefined,
                       }
                     : {
@@ -282,9 +269,7 @@ export function SupportRechargePage() {
                             ? "COIN"
                             : row.requestKind === "MEMBERSHIP"
                               ? "MEMBERSHIP"
-                              : row.requestKind === "AVATAR_FRAME"
-                                ? "AVATAR_FRAME"
-                                : undefined,
+                              : undefined,
                       },
                 );
               }}
@@ -324,12 +309,6 @@ export function SupportRechargePage() {
         ...(values.fulfillmentType === "MEMBERSHIP"
           ? { membershipLevel: values.membershipLevel }
           : {}),
-        ...(values.fulfillmentType === "AVATAR_FRAME"
-          ? {
-              frameId: values.frameId,
-              frameExpiresAt: toIso(values.frameExpiresAt),
-            }
-          : {}),
         note: values.note?.trim() || undefined,
       },
     });
@@ -340,7 +319,7 @@ export function SupportRechargePage() {
       <div>
         <Typography.Title level={2}>充值客服</Typography.Title>
         <Typography.Paragraph type="secondary">
-          自动客服只负责发送当前收款码并收集付款截图。付款真实性必须由管理员核对，确认后才会发放积分、会员或头像框。
+          自动客服只负责发送当前收款码并收集付款截图。付款真实性必须由管理员核对，确认后才会发放积分或开通会员。
         </Typography.Paragraph>
       </div>
 
@@ -508,7 +487,6 @@ export function SupportRechargePage() {
               options={[
                 { value: "COIN", label: "积分" },
                 { value: "MEMBERSHIP", label: "会员" },
-                { value: "AVATAR_FRAME", label: "头像框" },
               ]}
             />
           </Form.Item>
@@ -534,26 +512,6 @@ export function SupportRechargePage() {
                 style={{ width: "100%" }}
               />
             </Form.Item>
-          ) : null}
-          {fulfillmentType === "AVATAR_FRAME" ? (
-            <>
-              <Form.Item
-                name="frameId"
-                label="头像框"
-                rules={[{ required: true, message: "请选择头像框" }]}
-              >
-                <Select
-                  loading={frames.isLoading}
-                  options={(frames.data ?? []).map((frame) => ({
-                    value: frame.id,
-                    label: frame.name,
-                  }))}
-                />
-              </Form.Item>
-              <Form.Item name="frameExpiresAt" label="到期时间（留空为永久）">
-                <Input type="datetime-local" />
-              </Form.Item>
-            </>
           ) : null}
           <Form.Item name="note" label="审核备注（可选）">
             <Input.TextArea maxLength={500} />
