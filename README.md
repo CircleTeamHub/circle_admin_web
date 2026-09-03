@@ -40,6 +40,7 @@ VITE_API_BASE_URL=/api/v1
 VITE_APP_ENV=production
 VITE_GRAFANA_URL=https://grafana.example.com
 VITE_SENTRY_URL=https://sentry.example.com
+VITE_SENTRY_DSN=            # 可选：管理台自身的错误上报（留空即关闭）
 VITE_UPTIME_KUMA_URL=https://uptime.example.com
 VITE_ALERTMANAGER_URL=https://alertmanager.example.com
 ```

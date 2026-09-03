@@ -4,6 +4,7 @@ import {
   getSessionEpoch,
   setSessionIfCurrent,
 } from "../auth/session";
+import { reportApiFailure } from "../observability/sentry";
 
 export class ApiError extends Error {
   constructor(
@@ -118,7 +119,23 @@ function getRefreshedAccessToken(sessionEpoch: number): Promise<string> {
   return promise;
 }
 
+/**
+ * 统一出口：请求失败先经 reportApiFailure（网络不可达 / 5xx 进 Sentry，
+ * 预期内的 4xx 不进），再原样抛给调用方 —— 上报绝不改变错误本身。
+ */
 export async function apiClient<T>(
+  path: string,
+  options: ApiClientOptions = {},
+): Promise<T> {
+  try {
+    return await performRequest<T>(path, options);
+  } catch (error) {
+    reportApiFailure(error, { path, method: options.method ?? "GET" });
+    throw error;
+  }
+}
+
+async function performRequest<T>(
   path: string,
   options: ApiClientOptions = {},
 ): Promise<T> {
