@@ -50,6 +50,7 @@ jobs:
           VITE_APP_ENV: ${{ vars.VITE_APP_ENV || 'production' }}
           VITE_GRAFANA_URL: ${{ vars.VITE_GRAFANA_URL }}
           VITE_SENTRY_URL: ${{ vars.VITE_SENTRY_URL }}
+          VITE_SENTRY_DSN: ${{ vars.VITE_SENTRY_DSN }}
           VITE_UPTIME_KUMA_URL: ${{ vars.VITE_UPTIME_KUMA_URL }}
           VITE_ALERTMANAGER_URL: ${{ vars.VITE_ALERTMANAGER_URL }}
         run: npm run build

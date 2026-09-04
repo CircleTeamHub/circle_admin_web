@@ -40,9 +40,16 @@ VITE_API_BASE_URL=/api/v1
 VITE_APP_ENV=production
 VITE_GRAFANA_URL=https://grafana.example.com
 VITE_SENTRY_URL=https://sentry.example.com
+VITE_SENTRY_DSN=            # 可选：管理台自身的错误上报（留空即关闭）
 VITE_UPTIME_KUMA_URL=https://uptime.example.com
 VITE_ALERTMANAGER_URL=https://alertmanager.example.com
 ```
+
+`VITE_*` 在构建期被 Vite 内联进静态文件，运行时改不了。生产镜像由
+`.github/workflows/build-image.yml` 的 `Build dist` 步骤构建，取值来自 GitHub
+仓库变量（如 `vars.VITE_SENTRY_DSN`；不设即关闭上报）。新增 `VITE_*` 变量时必须
+同时加进该步骤，`scripts/release-contract.mjs` 会校验 `.env.example` 里的每个
+变量都已转发。
 
 生产环境默认通过同域 `/api/v1` 访问后端。外层 Caddy 直接把 `/api/*`
 路由到后端蓝绿别名 `circle-be-app:3000`；管理端 Nginx 只提供静态文件，

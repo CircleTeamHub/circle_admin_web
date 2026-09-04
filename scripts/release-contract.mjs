@@ -139,3 +139,34 @@ test('admin workflow and server use the same strict version format', () => {
 
   assert.ok(read('.github/workflows/release.yml').includes(strictVersion));
 });
+
+test('admin production build forwards every documented VITE_* variable', () => {
+  // Vite bakes VITE_* into the bundle at build time, so a variable that is
+  // documented but not forwarded by the image build is silently absent in
+  // production (this is how the Sentry DSN went missing).
+  const workflow = read('.github/workflows/build-image.yml');
+  const buildStep = workflow.slice(
+    workflow.indexOf('- name: Build dist'),
+    workflow.indexOf('run: npm run build'),
+  );
+  assert.ok(buildStep.length > 0, 'build-image.yml must keep a "Build dist" step with an env block');
+
+  const documented = read('.env.example')
+    .split(/\r?\n/)
+    .map((line) => line.match(/^(VITE_[A-Z0-9_]+)=/)?.[1])
+    .filter(Boolean);
+  assert.ok(documented.includes('VITE_SENTRY_DSN'), '.env.example must document VITE_SENTRY_DSN');
+
+  for (const name of documented) {
+    assert.match(
+      buildStep,
+      new RegExp(String.raw`^\s+${name}: \$\{\{ vars\.${name}( \|\| '[^']*')? \}\}$`, 'm'),
+      `${name} is documented in .env.example but the Build dist step never receives it`,
+    );
+  }
+  assert.match(
+    read('README.md'),
+    /vars\.VITE_SENTRY_DSN/,
+    'README must tell operators that the production DSN comes from the repository variable',
+  );
+});
