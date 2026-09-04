@@ -45,6 +45,12 @@ VITE_UPTIME_KUMA_URL=https://uptime.example.com
 VITE_ALERTMANAGER_URL=https://alertmanager.example.com
 ```
 
+`VITE_*` 在构建期被 Vite 内联进静态文件，运行时改不了。生产镜像由
+`.github/workflows/build-image.yml` 的 `Build dist` 步骤构建，取值来自 GitHub
+仓库变量（如 `vars.VITE_SENTRY_DSN`；不设即关闭上报）。新增 `VITE_*` 变量时必须
+同时加进该步骤，`scripts/release-contract.mjs` 会校验 `.env.example` 里的每个
+变量都已转发。
+
 生产环境默认通过同域 `/api/v1` 访问后端。外层 Caddy 直接把 `/api/*`
 路由到后端蓝绿别名 `circle-be-app:3000`；管理端 Nginx 只提供静态文件，
 不承载 API 反向代理。

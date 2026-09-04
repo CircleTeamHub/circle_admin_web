@@ -5,9 +5,12 @@
  * - 没配 `VITE_SENTRY_DSN` 就完全是 no-op（不 init、不发一个字节）；
  * - 发出去的事件按白名单重建：堆栈帧位置、错误类名、归一化后的路径、少量固定 tag；
  *   异常 message / 面包屑文本 / 请求 query / 账号标识一律不带；
- * - 业务代码只能走 reportError / reportApiFailure，两者在未初始化时静默。
+ * - 业务代码只能走 reportError / reportApiFailure，两者在未初始化时静默；
+ * - 脱敏器自身抛错时事件直接丢弃（fail closed），绝不让 SDK 的内部兜底事件绕过脱敏；
+ * - 同一指纹在一次页面生命周期内最多上报 MAX_REPORTS_PER_FINGERPRINT 次。
  */
 import * as Sentry from "@sentry/react";
+import { STATIC_ROUTE_SEGMENTS } from "./route-segments";
 
 export type SentryClientLike = {
   init: (options: Record<string, unknown>) => void;
@@ -26,12 +29,34 @@ export interface ReportContext {
 }
 
 const STABLE_TAG = /^[A-Za-z][A-Za-z0-9_.-]{0,63}$/;
-const UUID_SEGMENT =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+/** `https://host` / `//host` 前缀：fetch 面包屑里的 url 是绝对地址。 */
+const ABSOLUTE_URL_PREFIX = /^(?:[a-z][a-z0-9+.-]*:)?\/\/[^/?#]*/i;
 const BEARER_TOKEN_PATTERN = /\bBearer\s+[A-Za-z0-9._~+/=-]+/gi;
 const JWT_PATTERN = /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g;
 const EMAIL_PATTERN = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
 const URL_WITH_QUERY_PATTERN = /https?:\/\/[^\s"'<>)]*\?[^\s"'<>)]*/gi;
+
+/**
+ * 众所周知的浏览器噪音：不是我们的 bug，也没有可操作性。ResizeObserver 两条是
+ * Chrome / Firefox 对布局抖动的告警；chunk 加载失败是部署切换后旧页面拿不到旧资源，
+ * 刷新即好。Sentry 对字符串条目做子串匹配。
+ */
+const IGNORED_BROWSER_NOISE: (string | RegExp)[] = [
+  "ResizeObserver loop limit exceeded",
+  "ResizeObserver loop completed with undelivered notifications",
+  /ChunkLoadError|Loading chunk .* failed|Loading CSS chunk .* failed/,
+];
+
+/**
+ * 同一指纹（operation + kind + status + method + 归一化路径）在一次页面生命周期内
+ * 最多上报的次数。持续故障（后端整体 5xx、断网）会让每次轮询都失败，没有上限时
+ * 一个标签页几分钟就能吃掉配额、把真正的新问题淹没在重复里。
+ * 按进程生命周期而不是滑动窗口计数：不需要计时器，语义可预测（刷新即重置）；
+ * 「还在发生吗」由 Sentry 服务端的 issue 聚合回答。key 里的路径已归一化，
+ * 所以 `/admin/users/1` 与 `/admin/users/2` 的同类失败共用一份配额。
+ */
+const MAX_REPORTS_PER_FINGERPRINT = 3;
+const reportCounts = new Map<string, number>();
 
 let sentryInitialized = false;
 const defaultClient = Sentry as unknown as SentryClientLike;
@@ -48,18 +73,32 @@ export function resolveSentryDsn(
   return readTrimmed(env.VITE_SENTRY_DSN);
 }
 
-/** `/users/<uuid>/notes/123?x=1` → `/users/:id/notes/:id`。 */
+/**
+ * 把路径收敛成「路由形状」：`/admin/users/42/status?x=1` → `/admin/users/:id/status`。
+ *
+ * 判定是**白名单**而不是「看起来像不像标识符」（与移动端 sanitizeTransactionName /
+ * route-segments.ts 同一决定）：后端 id 是不透明的，community.ts 会请求
+ * `/admin/community/circles/${id}/${action}`，一个纯字母的 circle id（privatecircle）
+ * 用任何字符类规则都无法与真正的静态段区分开 —— 靠猜就一定漏。所以只有出现在
+ * 路由表 / API 字面路径里的段（STATIC_ROUTE_SEGMENTS）才保留，其余一律 `:id`。
+ * 带 scheme 的绝对 URL（fetch 面包屑）只取 path：host 对分组没有价值，而第三方
+ * 直传地址（预签名上传）本来就不该出现在上报里。
+ */
 export function normalizePath(value: string): string {
-  const withoutQuery = value.split("?")[0].split("#")[0];
-  return withoutQuery
+  const path = value
+    .trim()
+    .replace(ABSOLUTE_URL_PREFIX, "")
+    .split("?")[0]
+    .split("#")[0];
+  const normalized = path
     .split("/")
     .map((segment) => {
       if (segment === "") return segment;
-      if (/^\d+$/.test(segment) || UUID_SEGMENT.test(segment)) return ":id";
-      if (segment.length >= 16 && /\d/.test(segment)) return ":id";
-      return segment;
+      return STATIC_ROUTE_SEGMENTS.has(segment) ? segment : ":id";
     })
     .join("/");
+  // 白名单之后理论上只剩静态词、`:id` 与斜杠；再过一遍 sanitizeString 是纵深防御。
+  return sanitizeString(normalized);
 }
 
 export function sanitizeString(value: string): string {
@@ -95,6 +134,23 @@ function sanitizeFrames(stacktrace: unknown): unknown {
   };
 }
 
+/**
+ * mechanism 说明这条异常是怎么被捕获的（onerror / onunhandledrejection /
+ * error_boundary …、handled 与否），是 Sentry 区分「崩溃」与「已处理」的依据。
+ * 只放行有界的 type 与两个布尔位；`data`（函数名、handler 等）丢弃。
+ */
+function sanitizeMechanism(mechanism: unknown): Record<string, unknown> | undefined {
+  if (!mechanism || typeof mechanism !== "object") return undefined;
+  const source = mechanism as Record<string, unknown>;
+  const safe: Record<string, unknown> = {};
+  if (typeof source.type === "string" && STABLE_TAG.test(source.type)) {
+    safe.type = source.type;
+  }
+  if (typeof source.handled === "boolean") safe.handled = source.handled;
+  if (typeof source.synthetic === "boolean") safe.synthetic = source.synthetic;
+  return Object.keys(safe).length > 0 ? safe : undefined;
+}
+
 function sanitizeException(exception: unknown): unknown {
   if (!exception || typeof exception !== "object") return undefined;
   const values = (exception as { values?: unknown }).values;
@@ -108,6 +164,8 @@ function sanitizeException(exception: unknown): unknown {
       };
       const stacktrace = sanitizeFrames(source.stacktrace);
       if (stacktrace) safe.stacktrace = stacktrace;
+      const mechanism = sanitizeMechanism(source.mechanism);
+      if (mechanism) safe.mechanism = mechanism;
       return safe;
     }),
   };
@@ -190,6 +248,26 @@ export interface InitSentryOptions {
   env?: Record<string, unknown>;
 }
 
+type Sanitizer = (input: Record<string, unknown>) => Record<string, unknown>;
+
+/**
+ * 脱敏器抛错 → 返回 null 丢弃这条。@sentry/core 会把 beforeSend 抛出的异常当作
+ * SDK 内部错误重新 captureException（hint.data.__sentry__ = true），而带该标记的
+ * 替代事件**不再经过 beforeSend** —— scope 上的面包屑、tags、请求 URL 会原样发出。
+ * 所以异常绝不能逃出这里：宁可少一条事件，不能多一条未脱敏的。
+ */
+function failClosed(
+  sanitize: Sanitizer,
+): (input: Record<string, unknown>) => Record<string, unknown> | null {
+  return (input) => {
+    try {
+      return sanitize(input);
+    } catch {
+      return null;
+    }
+  };
+}
+
 /** 只有配置了 DSN 才 init；未配置返回 false，之后所有上报都是 no-op。 */
 export function initSentry(options: InitSentryOptions = {}): boolean {
   const client = options.client ?? defaultClient;
@@ -205,9 +283,9 @@ export function initSentry(options: InitSentryOptions = {}): boolean {
         : {}),
       sendDefaultPii: false,
       tracesSampleRate: 0,
-      beforeSend: sanitizeEvent,
-      beforeBreadcrumb: (crumb: Record<string, unknown>) =>
-        sanitizeBreadcrumb(crumb),
+      ignoreErrors: IGNORED_BROWSER_NOISE,
+      beforeSend: failClosed(sanitizeEvent),
+      beforeBreadcrumb: failClosed(sanitizeBreadcrumb),
     });
     sentryInitialized = true;
     return true;
@@ -217,9 +295,18 @@ export function initSentry(options: InitSentryOptions = {}): boolean {
   }
 }
 
-/** 测试隔离用。 */
+/** 测试隔离用：清掉初始化标记与按指纹的上报计数。 */
 export function resetSentryForTests(): void {
   sentryInitialized = false;
+  reportCounts.clear();
+}
+
+/** 给这次上报计数；该指纹已达 MAX_REPORTS_PER_FINGERPRINT 时返回 false。 */
+function underReportCap(key: string): boolean {
+  const count = reportCounts.get(key) ?? 0;
+  if (count >= MAX_REPORTS_PER_FINGERPRINT) return false;
+  reportCounts.set(key, count + 1);
+  return true;
 }
 
 function toSafeError(error: unknown, message: string): Error {
@@ -238,6 +325,7 @@ function toSafeError(error: unknown, message: string): Error {
 /**
  * 已处理失败 → Sentry。未初始化时（没有 DSN）静默；`client` 可注入供测试。
  * fingerprint 由 operation + kind (+ status) 决定，避免按被脱敏的 message 分组。
+ * 同一指纹 + method + 归一化路径在一次页面生命周期内最多发 MAX_REPORTS_PER_FINGERPRINT 条。
  */
 export function reportError(
   error: unknown,
@@ -253,6 +341,14 @@ export function reportError(
     if (context.method) tags.method = stableTag(context.method, "UNKNOWN");
     if (typeof context.status === "number") tags.status = String(context.status);
     if (context.path) tags.path = normalizePath(context.path);
+    const capKey = [
+      operation,
+      kind,
+      tags.status ?? "no-status",
+      tags.method ?? "-",
+      tags.path ?? "-",
+    ].join("|");
+    if (!underReportCap(capKey)) return;
     target.captureException(toSafeError(error, `${operation} ${kind} failure`), {
       tags,
       fingerprint: [operation, kind, tags.status ?? "no-status"],
