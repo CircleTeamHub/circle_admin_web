@@ -70,16 +70,10 @@ const dashboard: AdminDashboard = {
     system: {
       status: "ok" as const,
       data: {
-        pending: 3,
-        processing: 1,
-        failed: 2,
-        oldestPendingAt: "2026-07-29T11:00:00.000Z",
-        oldestFailedAt: null,
         services: {
           api: "healthy",
           database: "healthy",
           redis: "healthy",
-          openim: "healthy",
         },
       },
     },
@@ -112,14 +106,31 @@ describe("DashboardPage", () => {
     expect(screen.getByText("积分消费")).toBeInTheDocument();
     expect(screen.getByText("商城经营")).toBeInTheDocument();
     expect(screen.getByText("治理与系统健康")).toBeInTheDocument();
-    expect(screen.getByText("21")).toBeInTheDocument();
-    expect(screen.getByText("OpenIM")).toBeInTheDocument();
+    expect(screen.getByText("Redis")).toBeInTheDocument();
     expect(screen.getByText(/统计区间（Asia\/Shanghai）/)).toBeInTheDocument();
     expect(screen.getByText(/2026\/07\/29 00:00:00/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "审核用户举报" })).toHaveAttribute(
       "href",
       "/reports",
     );
+  });
+
+  // OpenIM 同步 outbox 已拆除:不再渲染假队列,待处理事项只数治理队列。
+  it("counts only moderation work and renders no retired outbox queue", async () => {
+    renderPage();
+
+    const headline = (await screen.findByText("待处理事项")).closest(
+      ".ant-statistic",
+    );
+    expect(headline).not.toBeNull();
+    expect(within(headline as HTMLElement).getByText("21")).toBeInTheDocument();
+    expect(screen.getByText("服务健康")).toBeInTheDocument();
+    expect(screen.queryByText("OpenIM")).not.toBeInTheDocument();
+    expect(screen.queryByText("Outbox 状态")).not.toBeInTheDocument();
+    expect(screen.queryByText(/^待处理 \d+$/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^处理中 \d+$/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^失败 \d+$/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/最老待处理/)).not.toBeInTheDocument();
   });
 
   it("reloads the dashboard when the range changes", async () => {
@@ -155,7 +166,6 @@ describe("DashboardPage", () => {
     expect(screen.queryByText("API 异常")).not.toBeInTheDocument();
     expect(screen.queryByText("数据库异常")).not.toBeInTheDocument();
     expect(screen.queryByText("Redis 异常")).not.toBeInTheDocument();
-    expect(screen.queryByText("OpenIM 异常")).not.toBeInTheDocument();
     expect(screen.getByText("用户数据尚未获取")).toBeInTheDocument();
     expect(screen.getByText("社区数据尚未获取")).toBeInTheDocument();
     expect(screen.getByText("商城数据尚未获取")).toBeInTheDocument();

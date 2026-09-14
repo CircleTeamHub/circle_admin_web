@@ -156,7 +156,7 @@ export function UsersPage() {
         <Input.Search
           allowClear
           aria-label="搜索用户"
-          placeholder="账号 ID、昵称、邮箱或手机号"
+          placeholder="账号 ID、昵称，或完整邮箱 / 手机号"
           value={keywordDraft}
           onChange={(event) => {
             const value = event.target.value;

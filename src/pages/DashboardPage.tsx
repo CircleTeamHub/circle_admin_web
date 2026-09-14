@@ -112,8 +112,8 @@ export function DashboardPage() {
   const commerce = valueOf(dashboard.data?.sections.commerce);
   const moderation = valueOf(dashboard.data?.sections.moderation);
   const system = valueOf(dashboard.data?.sections.system);
-  const pendingTotal =
-    moderation && system ? moderation.pendingTotal + system.failed : null;
+  // 待处理事项只数治理队列:OpenIM 同步 outbox 早已拆除,后端不再返回失败数。
+  const pendingTotal = moderation ? moderation.pendingTotal : null;
 
   return (
     <Space orientation="vertical" size={16} className="page-stack">
@@ -339,44 +339,28 @@ export function DashboardPage() {
           </Card>
         </Col>
         <Col xs={24} xl={12}>
-          <Card title="Outbox 状态" loading={dashboard.isLoading}>
+          <Card title="服务健康" loading={dashboard.isLoading}>
             {!dashboard.data ? (
               <SectionPending title="系统状态" />
             ) : dashboard.data.sections.system.status === "error" ? (
               <SectionUnavailable title="系统数据" />
             ) : (
-              <Space orientation="vertical">
-                <Space wrap>
-                  {(
-                    [
-                      ["API", system?.services.api],
-                      ["数据库", system?.services.database],
-                      ["Redis", system?.services.redis],
-                      ["OpenIM", system?.services.openim],
-                    ] as const
-                  ).map(([name, status]) => (
-                    <Tag
-                      key={name}
-                      color={status === "healthy" ? "green" : "red"}
-                    >
-                      <span>{name}</span>{" "}
-                      <span>{status === "healthy" ? "正常" : "异常"}</span>
-                    </Tag>
-                  ))}
-                </Space>
-                <Space wrap>
-                  <Tag color="gold">待处理 {system?.pending ?? 0}</Tag>
-                  <Tag color="blue">处理中 {system?.processing ?? 0}</Tag>
-                  <Tag color={system?.failed ? "red" : "green"}>
-                    失败 {system?.failed ?? 0}
+              <Space wrap>
+                {(
+                  [
+                    ["API", system?.services.api],
+                    ["数据库", system?.services.database],
+                    ["Redis", system?.services.redis],
+                  ] as const
+                ).map(([name, status]) => (
+                  <Tag
+                    key={name}
+                    color={status === "healthy" ? "green" : "red"}
+                  >
+                    <span>{name}</span>{" "}
+                    <span>{status === "healthy" ? "正常" : "异常"}</span>
                   </Tag>
-                </Space>
-                <Typography.Text type="secondary">
-                  最老待处理：
-                  {system?.oldestPendingAt
-                    ? formatDateTime(system.oldestPendingAt)
-                    : "无"}
-                </Typography.Text>
+                ))}
               </Space>
             )}
           </Card>

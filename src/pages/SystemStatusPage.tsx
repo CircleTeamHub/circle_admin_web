@@ -1,34 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
 import { Button, Card, Descriptions, Space, Typography } from "antd";
 import { getMe } from "../api/auth";
-import { getOutboxHealth } from "../api/system";
 import { PageError } from "../components/PageError";
-import type { OutboxQueueHealth } from "../types";
-import { formatDateTime } from "../utils/format";
 
-function QueueHealth({ title, data }: { title: string; data?: OutboxQueueHealth }) {
-  return (
-    <Card title={title}>
-      <Descriptions column={1} size="small">
-        <Descriptions.Item label="pending">{data?.pending ?? 0}</Descriptions.Item>
-        <Descriptions.Item label="processing">{data?.processing ?? 0}</Descriptions.Item>
-        <Descriptions.Item label="failed">{data?.failed ?? 0}</Descriptions.Item>
-        <Descriptions.Item label="oldest pending">
-          {formatDateTime(data?.oldestPendingAt)}
-        </Descriptions.Item>
-        <Descriptions.Item label="oldest failed">{formatDateTime(data?.oldestFailedAt)}</Descriptions.Item>
-      </Descriptions>
-    </Card>
-  );
-}
-
+/**
+ * 系统状态页只保留真实可观测的信号:管理端 API 是否可达 + 外部监控入口。
+ * 原先的 friend/group outbox 队列面板读的是从未存在的 GET /outbox/health
+ * (OpenIM 同步 outbox 早已拆除),只会显示一排 0 与「unknown」。
+ */
 export function SystemStatusPage() {
-  const outbox = useQuery({ queryKey: ["outboxHealth"], queryFn: getOutboxHealth });
   const api = useQuery({ queryKey: ["apiReachable"], queryFn: getMe, retry: 0 });
-  const failedQuery = outbox.isError ? outbox : api.isError ? api : null;
-  const refreshAll = () => {
-    outbox.refetch();
-    api.refetch();
+  const refresh = () => {
+    void api.refetch();
   };
   const links = [
     ["Grafana", import.meta.env.VITE_GRAFANA_URL],
@@ -41,21 +24,16 @@ export function SystemStatusPage() {
     <Space direction="vertical" size={16} className="page-stack">
       <Space className="page-title-row">
         <Typography.Title level={3}>系统状态</Typography.Title>
-        <Button onClick={refreshAll}>刷新</Button>
+        <Button onClick={refresh}>刷新</Button>
       </Space>
-      {failedQuery ? (
-        <PageError error={failedQuery.error} onRetry={refreshAll} message="系统状态加载失败" />
+      {api.isError ? (
+        <PageError error={api.error} onRetry={refresh} message="系统状态加载失败" />
       ) : null}
-      <Card loading={outbox.isLoading || api.isLoading}>
+      <Card loading={api.isLoading}>
         <Descriptions column={1} size="small">
           <Descriptions.Item label="API">{api.isError ? "不可达" : "可达"}</Descriptions.Item>
-          <Descriptions.Item label="Outbox">{outbox.data?.status || "unknown"}</Descriptions.Item>
         </Descriptions>
       </Card>
-      <Space align="start" wrap>
-        <QueueHealth title="friend outbox" data={outbox.data?.friend} />
-        <QueueHealth title="group outbox" data={outbox.data?.group} />
-      </Space>
       <Card title="外部系统">
         <Space wrap>
           {links.map(([name, url]) => (

@@ -58,7 +58,6 @@ export interface UserSecuritySummary {
   singleDeviceLoginEnabled: boolean;
   activeSessionCount: number;
   activePushDeviceCount: number;
-  openimSynced: boolean;
 }
 
 export interface UserBusinessSummary {
@@ -143,16 +142,3 @@ export interface FriendReport {
   reviewNote?: string | null;
 }
 
-export interface OutboxQueueHealth {
-  pending?: number;
-  processing?: number;
-  failed?: number;
-  oldestPendingAt?: string | null;
-  oldestFailedAt?: string | null;
-}
-
-export interface OutboxHealth {
-  friend?: OutboxQueueHealth;
-  group?: OutboxQueueHealth;
-  status?: string;
-}

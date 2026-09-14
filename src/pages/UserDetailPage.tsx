@@ -169,9 +169,6 @@ export function UserDetailPage({ currentUser }: { currentUser: AuthUser }) {
             <Descriptions.Item label="推送设备">
               {data.security.activePushDeviceCount}
             </Descriptions.Item>
-            <Descriptions.Item label="OpenIM 同步">
-              {data.security.openimSynced ? "是" : "否"}
-            </Descriptions.Item>
           </Descriptions>
         </Card>
 
