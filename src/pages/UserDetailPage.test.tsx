@@ -52,7 +52,6 @@ const detail: AdminUserDetail = {
     singleDeviceLoginEnabled: true,
     activeSessionCount: 2,
     activePushDeviceCount: 3,
-    openimSynced: true,
   },
   summary: {
     creditScore: 88,

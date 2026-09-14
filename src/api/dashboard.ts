@@ -36,17 +36,12 @@ export interface DashboardModerationMetrics {
   pendingTotal: number;
 }
 
+/** 只剩真实探针:OpenIM 同步 outbox 已拆除,后端不再返回队列计数与 openim 状态。 */
 export interface DashboardSystemMetrics {
-  pending: number;
-  processing: number;
-  failed: number;
-  oldestPendingAt: string | null;
-  oldestFailedAt: string | null;
   services: {
     api: "healthy" | "down";
     database: "healthy" | "down";
     redis: "healthy" | "down";
-    openim: "healthy" | "down";
   };
 }
 
