@@ -3,7 +3,6 @@ import {
   CommentOutlined,
   CustomerServiceOutlined,
   LogoutOutlined,
-  PayCircleOutlined,
   SafetyCertificateOutlined,
   StarOutlined,
   TeamOutlined,
@@ -13,6 +12,8 @@ import { Button, Layout, Menu, Space, Tag, Typography } from "antd";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { clearSession } from "../auth/session";
 import type { AuthUser } from "../types";
+import { useAdminAccess } from "../auth/admin-access";
+import { ADMIN_NAVIGATION } from "../auth/admin-navigation";
 
 const { Header, Sider, Content } = Layout;
 
@@ -20,6 +21,7 @@ export function AppLayout({ user }: { user: AuthUser }) {
   const navigate = useNavigate();
   const location = useLocation();
   const env = import.meta.env.VITE_APP_ENV || "development";
+  const { access, hasPermission } = useAdminAccess();
 
   return (
     <Layout className="app-shell">
@@ -27,44 +29,52 @@ export function AppLayout({ user }: { user: AuthUser }) {
         <div className="brand">Circle Admin</div>
         <Menu
           mode="inline"
-          selectedKeys={[location.pathname]}
-          onClick={({ key }) => navigate(key)}
-          items={[
-            { key: "/", icon: <DashboardOutlined />, label: "Dashboard" },
-            {
-              key: "/reports",
-              icon: <SafetyCertificateOutlined />,
-              label: "举报审核",
-            },
-            {
-              key: "/community",
-              icon: <CommentOutlined />,
-              label: "圈子与群聊",
-            },
-            { key: "/users", icon: <TeamOutlined />, label: "用户管理" },
-            {
-              key: "/fancy-numbers",
-              icon: <StarOutlined />,
-              label: "热门靓号",
-            },
-            {
-              key: "/support-agents",
-              icon: <CustomerServiceOutlined />,
-              label: "客服配置",
-            },
-            {
-              key: "/support-recharge",
-              icon: <PayCircleOutlined />,
-              label: "充值审核",
-            },
-            { key: "/system", icon: <ToolOutlined />, label: "系统状态" },
+          selectedKeys={[
+            ADMIN_NAVIGATION.find(
+              (item) =>
+                item.key !== "/" &&
+                (location.pathname === item.key ||
+                  location.pathname.startsWith(`${item.key}/`)),
+            )?.key ?? "/",
           ]}
+          onClick={({ key }) => navigate(key)}
+          items={ADMIN_NAVIGATION.filter((item) =>
+            hasPermission(item.permission),
+          ).map((item) => ({
+            ...item,
+            icon:
+              item.key === "/" ? (
+                <DashboardOutlined />
+              ) : item.key === "/users" ? (
+                <TeamOutlined />
+              ) : item.key === "/im" || item.key === "/community" ? (
+                <CommentOutlined />
+              ) : item.key.includes("fancy") || item.key === "/memberships" ? (
+                <StarOutlined />
+              ) : item.key.includes("support") || item.key === "/recharge" ? (
+                <CustomerServiceOutlined />
+              ) : item.key === "/system" || item.key === "/audit-logs" ? (
+                <ToolOutlined />
+              ) : (
+                <SafetyCertificateOutlined />
+              ),
+          }))}
         />
       </Sider>
       <Layout>
         <Header className="app-header">
           <Space>
             <Tag color={env === "production" ? "red" : "blue"}>{env}</Tag>
+            <Tag>
+              {(
+                {
+                  SUPER_ADMIN: "超级管理员",
+                  OPERATIONS: "运营",
+                  MODERATOR: "审核",
+                  SUPPORT: "客服",
+                } as Record<string, string>
+              )[access?.role ?? ""] ?? "未分配权限"}
+            </Tag>
             <Typography.Text>{user.nickname || user.accountId}</Typography.Text>
             <Typography.Text type="secondary">{user.accountId}</Typography.Text>
             <Button

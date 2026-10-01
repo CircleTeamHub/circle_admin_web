@@ -21,6 +21,7 @@ import { UserStatusActions } from "../components/UserStatusActions";
 import { UserAvatarFramesCard } from "../components/UserAvatarFramesCard";
 import type { AdminAuditLog, AuthUser, SensitiveField } from "../types";
 import { formatDateTime } from "../utils/format";
+import { useAdminAccess } from "../auth/admin-access";
 
 const CONTACT_LABELS: Array<[SensitiveField, string]> = [
   ["email", "邮箱"],
@@ -43,6 +44,7 @@ const SUMMARY_LABELS = {
 } as const;
 
 export function UserDetailPage({ currentUser }: { currentUser: AuthUser }) {
+  const { hasPermission } = useAdminAccess();
   const { userId = "" } = useParams();
   const detail = useQuery({
     queryKey: ["admin-user", userId],
@@ -52,7 +54,7 @@ export function UserDetailPage({ currentUser }: { currentUser: AuthUser }) {
   const audit = useQuery({
     queryKey: ["admin-user-audit", userId],
     queryFn: () => listUserAuditLogs(userId, 20),
-    enabled: !!userId,
+    enabled: !!userId && hasPermission("AUDIT_READ"),
   });
 
   const backlink = <Link to="/users">返回用户列表</Link>;
@@ -123,12 +125,24 @@ export function UserDetailPage({ currentUser }: { currentUser: AuthUser }) {
       <div className="admin-user-card-grid">
         <Card title="账户资料">
           <Descriptions column={1} size="small">
-            <Descriptions.Item label="用户 ID">{data.profile.id}</Descriptions.Item>
-            <Descriptions.Item label="账号 ID">{data.profile.accountId}</Descriptions.Item>
-            <Descriptions.Item label="昵称">{data.profile.nickname}</Descriptions.Item>
-            <Descriptions.Item label="城市">{data.profile.city || "-"}</Descriptions.Item>
-            <Descriptions.Item label="地区">{data.profile.region || "-"}</Descriptions.Item>
-            <Descriptions.Item label="性别">{data.profile.gender}</Descriptions.Item>
+            <Descriptions.Item label="用户 ID">
+              {data.profile.id}
+            </Descriptions.Item>
+            <Descriptions.Item label="账号 ID">
+              {data.profile.accountId}
+            </Descriptions.Item>
+            <Descriptions.Item label="昵称">
+              {data.profile.nickname}
+            </Descriptions.Item>
+            <Descriptions.Item label="城市">
+              {data.profile.city || "-"}
+            </Descriptions.Item>
+            <Descriptions.Item label="地区">
+              {data.profile.region || "-"}
+            </Descriptions.Item>
+            <Descriptions.Item label="性别">
+              {data.profile.gender}
+            </Descriptions.Item>
             <Descriptions.Item label="注册时间">
               {formatDateTime(data.profile.createdAt)}
             </Descriptions.Item>
@@ -150,6 +164,7 @@ export function UserDetailPage({ currentUser }: { currentUser: AuthUser }) {
                 field={field}
                 label={label}
                 maskedValue={data.maskedContacts[field]}
+                allowReveal={hasPermission("USER_SENSITIVE")}
               />
             ))}
           </Space>
@@ -173,10 +188,15 @@ export function UserDetailPage({ currentUser }: { currentUser: AuthUser }) {
         </Card>
 
         <Card title="VIP">
-          <Typography.Title level={5}>新的月度 VIP 系统设计中</Typography.Title>
-          <Typography.Paragraph type="secondary">
-            当前版本不读取旧 VIP 等级，也不提供升级或兑换操作。
-          </Typography.Paragraph>
+          {hasPermission("COMMERCE_MANAGE") ? (
+            <Link
+              to={`/memberships?search=${encodeURIComponent(data.profile.accountId)}`}
+            >
+              查看会员等级、有效期及发放记录
+            </Link>
+          ) : (
+            <Typography.Text>会员操作需要运营权限。</Typography.Text>
+          )}
         </Card>
       </div>
 
@@ -193,36 +213,42 @@ export function UserDetailPage({ currentUser }: { currentUser: AuthUser }) {
         </Row>
       </Card>
 
-      <UserAvatarFramesCard key={`avatar-frames:${userId}`} userId={userId} />
+      {hasPermission("COMMERCE_MANAGE") && (
+        <UserAvatarFramesCard key={`avatar-frames:${userId}`} userId={userId} />
+      )}
 
-      <Card title="危险操作">
-        <UserStatusActions
-          key={userId}
-          userId={userId}
-          accountId={data.profile.accountId}
-          status={data.profile.status}
-          currentUser={currentUser}
-        />
-      </Card>
+      {hasPermission("USER_MODERATE") && (
+        <Card title="危险操作">
+          <UserStatusActions
+            key={userId}
+            userId={userId}
+            accountId={data.profile.accountId}
+            status={data.profile.status}
+            currentUser={currentUser}
+          />
+        </Card>
+      )}
 
-      <Card title="最近 Admin 操作">
-        {audit.isError ? (
-          <PageError
-            error={audit.error}
-            onRetry={() => audit.refetch()}
-            message="审计记录加载失败"
-          />
-        ) : (
-          <Table
-            rowKey="id"
-            size="small"
-            loading={audit.isLoading}
-            columns={auditColumns}
-            dataSource={audit.data || []}
-            pagination={false}
-          />
-        )}
-      </Card>
+      {hasPermission("AUDIT_READ") && (
+        <Card title="最近 Admin 操作">
+          {audit.isError ? (
+            <PageError
+              error={audit.error}
+              onRetry={() => audit.refetch()}
+              message="审计记录加载失败"
+            />
+          ) : (
+            <Table
+              rowKey="id"
+              size="small"
+              loading={audit.isLoading}
+              columns={auditColumns}
+              dataSource={audit.data || []}
+              pagination={false}
+            />
+          )}
+        </Card>
+      )}
     </Space>
   );
 }
