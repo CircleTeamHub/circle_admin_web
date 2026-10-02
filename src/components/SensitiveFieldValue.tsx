@@ -22,6 +22,7 @@ interface SensitiveFieldValueProps {
   field: SensitiveField;
   label: string;
   maskedValue: string | null;
+  allowReveal?: boolean;
 }
 
 export function SensitiveFieldValue({
@@ -29,6 +30,7 @@ export function SensitiveFieldValue({
   field,
   label,
   maskedValue,
+  allowReveal = false,
 }: SensitiveFieldValueProps) {
   const queryClient = useQueryClient();
   const [modalOpen, setModalOpen] = useState(false);
@@ -60,6 +62,7 @@ export function SensitiveFieldValue({
   }, [userId, field]);
 
   const confirmReveal = async () => {
+    if (!allowReveal) return;
     const normalizedReason = reason.trim();
     if (normalizedReason.length < 3 || normalizedReason.length > 500) {
       setReasonError(true);
@@ -100,11 +103,15 @@ export function SensitiveFieldValue({
       <Space>
         <Typography.Text>{label}</Typography.Text>
         <Typography.Text code>
-          {isRevealed ? revealedValue || "-" : maskedValue || "-"}
+          {allowReveal && isRevealed
+            ? revealedValue || "-"
+            : maskedValue || "-"}
         </Typography.Text>
-        <Button size="small" onClick={() => setModalOpen(true)}>
-          查看原文
-        </Button>
+        {allowReveal && (
+          <Button size="small" onClick={() => setModalOpen(true)}>
+            查看原文
+          </Button>
+        )}
       </Space>
       <Modal
         title={`查看${label}原文`}

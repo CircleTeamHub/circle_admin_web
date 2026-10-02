@@ -11,18 +11,20 @@ const mockedReveal = vi.mocked(revealSensitiveField);
 interface FieldProps {
   userId: string;
   maskedValue: string;
+  allowReveal?: boolean;
 }
 
 function renderField(props: FieldProps) {
   const client = new QueryClient();
   const invalidateSpy = vi.spyOn(client, "invalidateQueries");
-  const ui = ({ userId, maskedValue }: FieldProps) => (
+  const ui = ({ userId, maskedValue, allowReveal = true }: FieldProps) => (
     <QueryClientProvider client={client}>
       <SensitiveFieldValue
         userId={userId}
         field="email"
         label="邮箱"
         maskedValue={maskedValue}
+        allowReveal={allowReveal}
       />
     </QueryClientProvider>
   );
@@ -58,6 +60,38 @@ describe("SensitiveFieldValue", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it("keeps the value masked without reveal permission", () => {
+    renderField({
+      userId: "u1",
+      maskedValue: "j***@example.com",
+      allowReveal: false,
+    });
+
+    expect(screen.getByText("j***@example.com")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "查看原文" }),
+    ).not.toBeInTheDocument();
+    expect(mockedReveal).not.toHaveBeenCalled();
+  });
+
+  it("blocks a pending confirmation after reveal permission is removed", () => {
+    const view = renderField({ userId: "u1", maskedValue: "j***@example.com" });
+    fireEvent.click(screen.getByRole("button", { name: "查看原文" }));
+    fireEvent.change(screen.getByLabelText("查看原因"), {
+      target: { value: "CS-1024" },
+    });
+
+    view.rerender({
+      userId: "u1",
+      maskedValue: "j***@example.com",
+      allowReveal: false,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "确认查看" }));
+
+    expect(mockedReveal).not.toHaveBeenCalled();
+    expect(screen.getByText("j***@example.com")).toBeInTheDocument();
   });
 
   it("shows the masked value by default and requires a reason", async () => {
