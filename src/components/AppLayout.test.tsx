@@ -1,11 +1,14 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it } from "vitest";
+import { AdminAccessContext, type AdminPermission } from "../auth/admin-access";
 import { AppLayout } from "./AppLayout";
 
-describe("AppLayout", () => {
-  it("routes administrators to the fancy-number recommendation page", async () => {
-    render(
+function renderLayout(permissions: AdminPermission[]) {
+  return render(
+    <AdminAccessContext.Provider
+      value={{ role: "OPERATIONS", permissions, version: 1 }}
+    >
       <MemoryRouter initialEntries={["/"]}>
         <Routes>
           <Route
@@ -27,13 +30,19 @@ describe("AppLayout", () => {
               element={<div>Fancy numbers destination</div>}
             />
             <Route
-              path="support-recharge"
+              path="recharge"
               element={<div>Recharge destination</div>}
             />
           </Route>
         </Routes>
-      </MemoryRouter>,
-    );
+      </MemoryRouter>
+    </AdminAccessContext.Provider>,
+  );
+}
+
+describe("AppLayout", () => {
+  it("routes authorized administrators to fancy numbers and recharge", async () => {
+    renderLayout(["COMMERCE_MANAGE", "RECHARGE_MANAGE"]);
 
     fireEvent.click(screen.getByRole("menuitem", { name: /热门靓号/ }));
 
@@ -43,5 +52,17 @@ describe("AppLayout", () => {
 
     fireEvent.click(screen.getByRole("menuitem", { name: /充值审核/ }));
     expect(await screen.findByText("Recharge destination")).toBeInTheDocument();
+  });
+
+  it("hides navigation entries outside the administrator's permissions", async () => {
+    renderLayout(["RECHARGE_MANAGE"]);
+
+    expect(await screen.findByRole("menuitem", { name: /充值审核/ })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("menuitem", { name: /热门靓号/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("menuitem", { name: /管理员权限/ }),
+    ).not.toBeInTheDocument();
   });
 });

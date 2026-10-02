@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getUserDetail, listUserAuditLogs } from "../api/users";
 import { ApiError } from "../api/client";
+import { AdminAccessContext, type AdminPermission } from "../auth/admin-access";
 import type { AdminUserDetail, AuthUser } from "../types";
 import { UserDetailPage } from "./UserDetailPage";
 
@@ -15,6 +16,10 @@ vi.mock("../api/users", async (importOriginal) => {
     listUserAuditLogs: vi.fn(),
   };
 });
+
+vi.mock("../components/UserAvatarFramesCard", () => ({
+  UserAvatarFramesCard: () => <div>avatar-frame-actions</div>,
+}));
 
 const mockedDetail = vi.mocked(getUserDetail);
 const mockedAudit = vi.mocked(listUserAuditLogs);
@@ -66,20 +71,24 @@ const detail: AdminUserDetail = {
   },
 };
 
-function renderPage() {
+function renderPage(permissions: AdminPermission[] = ["USER_READ", "AUDIT_READ"]) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   return render(
     <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={["/users/u1"]}>
-        <Routes>
-          <Route
-            path="/users/:userId"
-            element={<UserDetailPage currentUser={admin} />}
-          />
-        </Routes>
-      </MemoryRouter>
+      <AdminAccessContext.Provider
+        value={{ role: "SUPPORT", permissions, version: 1 }}
+      >
+        <MemoryRouter initialEntries={["/users/u1"]}>
+          <Routes>
+            <Route
+              path="/users/:userId"
+              element={<UserDetailPage currentUser={admin} />}
+            />
+          </Routes>
+        </MemoryRouter>
+      </AdminAccessContext.Provider>
     </QueryClientProvider>,
   );
 }
@@ -110,7 +119,7 @@ describe("UserDetailPage", () => {
   });
 
   it(
-    "renders the full operational view, audits, and VIP placeholder",
+    "renders the user profile and authorized audit history",
     async () => {
       renderPage();
 
@@ -123,9 +132,9 @@ describe("UserDetailPage", () => {
       expect(screen.getByText("120")).toBeInTheDocument();
       expect(screen.getByText("j***@example.com")).toBeInTheDocument();
       expect(
-        screen.getByText("USER_SENSITIVE_FIELD_VIEWED"),
+        await screen.findByText("USER_SENSITIVE_FIELD_VIEWED"),
       ).toBeInTheDocument();
-      expect(screen.getByText("新的月度 VIP 系统设计中")).toBeInTheDocument();
+      expect(screen.getByText("会员操作需要运营权限。")).toBeInTheDocument();
       expect(
         screen.queryByRole("button", { name: /VIP|升级|开通/ }),
       ).not.toBeInTheDocument();
@@ -136,6 +145,32 @@ describe("UserDetailPage", () => {
       );
     },
   );
+
+  it("keeps restricted actions and audit requests unavailable for read-only access", async () => {
+    renderPage(["USER_READ"]);
+
+    expect(await screen.findByText("j***@example.com")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "查看原文" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("危险操作")).not.toBeInTheDocument();
+    expect(screen.queryByText("最近 Admin 操作")).not.toBeInTheDocument();
+    expect(screen.queryByText("avatar-frame-actions")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "查看会员等级、有效期及发放记录" }),
+    ).not.toBeInTheDocument();
+    expect(mockedAudit).not.toHaveBeenCalled();
+  });
+
+  it("links authorized commerce administrators to the user's memberships", async () => {
+    renderPage(["USER_READ", "COMMERCE_MANAGE"]);
+
+    expect(
+      await screen.findByRole("link", { name: "查看会员等级、有效期及发放记录" }),
+    ).toHaveAttribute("href", "/memberships?search=jim-1001");
+    expect(screen.getByText("avatar-frame-actions")).toBeInTheDocument();
+    expect(mockedAudit).not.toHaveBeenCalled();
+  });
 
   it("shows a loading state while detail is pending", () => {
     mockedDetail.mockReturnValue(new Promise(() => {}));
