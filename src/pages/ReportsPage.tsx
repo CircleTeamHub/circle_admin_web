@@ -1,3 +1,10 @@
+import { PostDetails } from "../components/PostDetails";
+import { Link } from "react-router-dom";
+import { useAdminAccess } from "../auth/admin-access";
+import type { AdminUser } from "../types";
+import { Identifier, CodeValue } from "../components/ReadableValue";
+import { displayLabel } from "../utils/display";
+import { useUrlValue } from "./use-url-value";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Button,
@@ -15,7 +22,6 @@ import {
 import type { ColumnsType } from "antd/es/table";
 import { useState } from "react";
 import {
-  getPost,
   listReports,
   reviewReport,
   type ReportKind,
@@ -27,13 +33,38 @@ import type { ReportStatus, ReviewDecision } from "../types";
 import { getErrorMessage } from "../utils/errors";
 import { formatDateTime } from "../utils/format";
 
+function ReportUser({ user, userID }: { user?: AdminUser | null; userID?: string }) {
+  const { hasPermission } = useAdminAccess();
+  const id = user?.id || userID;
+  const name = user?.status === "DELETED" ? "已注销用户" : user?.nickname || user?.accountId || "用户资料不可用";
+  return (
+    <Space direction="vertical" size={0}>
+      {id && user && hasPermission("USER_READ") ? (
+        <Link to={`/users/${encodeURIComponent(id)}`}>{name}</Link>
+      ) : <Typography.Text>{name}</Typography.Text>}
+      <Typography.Text type="secondary">
+        {user?.accountId ? `账号 ID：${user.accountId}` : "账号信息未记录"}
+      </Typography.Text>
+    </Space>
+  );
+}
+
 const PAGE_SIZE = 20;
 
 export function ReportsPage() {
   const queryClient = useQueryClient();
-  const [kind, setKind] = useState<ReportKind>("friend");
-  const [status, setStatus] = useState<ReportStatus>("PENDING");
-  const [page, setPage] = useState(1);
+  const [kind, setKind] = useUrlValue<ReportKind>("kind", "friend", [
+    "friend",
+    "group",
+    "post",
+  ]);
+  const [status, setStatus] = useUrlValue<ReportStatus>("status", "PENDING", [
+    "PENDING",
+    "APPROVED",
+    "REJECTED",
+  ]);
+  const [page, setPage] = useUrlValue<number>("page", 1);
+  const [selectedPost, setSelectedPost] = useState<string>();
   const [selected, setSelected] = useState<ModerationReport | null>(null);
   const [review, setReview] = useState<{
     kind: ReportKind;
@@ -45,11 +76,6 @@ export function ReportsPage() {
   const reports = useQuery({
     queryKey: ["moderationReports", kind, status, page],
     queryFn: () => listReports(kind, { status, page, limit: PAGE_SIZE }),
-  });
-  const postEvidence = useQuery({
-    queryKey: ["reportPostEvidence", selected?.postID],
-    queryFn: () => getPost(selected!.postID!),
-    enabled: kind === "post" && !!selected?.postID,
   });
   const mutation = useMutation({
     mutationFn: ({
@@ -85,26 +111,38 @@ export function ReportsPage() {
     { title: "分类", dataIndex: "category", render: (value) => value || "-" },
     {
       title: "举报人",
-      render: (_, row) =>
-        row.reporter ? <UserSummary user={row.reporter} /> : row.reporterID,
+      render: (_, row) => <ReportUser user={row.reporter} userID={row.reporterID} />,
     },
     {
       title: "举报对象",
       render: (_, row) =>
         row.targetUser ? (
-          <UserSummary user={row.targetUser} />
+          <ReportUser user={row.targetUser} />
         ) : (
-          row.circle?.name || row.groupID || row.postID
+          row.postID ? (
+            <Button type="link" size="small" onClick={() => setSelectedPost(row.postID)}>帖子详情</Button>
+          ) : row.circle?.name || (
+            <Identifier
+              value={row.groupID || row.postID}
+              label={row.groupID ? "群聊" : "帖子"}
+            />
+          )
         ),
     },
-    { title: "状态", dataIndex: "status" },
+    {
+      title: "状态",
+      dataIndex: "status",
+      render: (value: string | null) => (
+        <CodeValue domain="reportStatus" value={value} />
+      ),
+    },
     {
       title: "审核人",
       render: (_, row) =>
         row.reviewer ? (
           <UserSummary user={row.reviewer} />
         ) : (
-          row.reviewedByID || "-"
+          <Identifier value={row.reviewedByID} label="审核人" />
         ),
     },
     {
@@ -156,7 +194,6 @@ export function ReportsPage() {
         onChange={(key) => {
           if (mutation.isPending) return;
           setKind(key as ReportKind);
-          setPage(1);
           setSelected(null);
           setReview(null);
           form.resetFields();
@@ -171,11 +208,10 @@ export function ReportsPage() {
         activeKey={status}
         onChange={(key) => {
           setStatus(key as ReportStatus);
-          setPage(1);
         }}
         items={["PENDING", "APPROVED", "REJECTED"].map((key) => ({
           key,
-          label: key,
+          label: displayLabel("reportStatus", key),
         }))}
       />
       {reports.isError ? (
@@ -198,6 +234,9 @@ export function ReportsPage() {
           onChange: setPage,
         }}
       />
+      <Drawer title="帖子详情" width={680} open={!!selectedPost} onClose={() => setSelectedPost(undefined)} destroyOnHidden>
+        {selectedPost && <PostDetails postID={selectedPost} />}
+      </Drawer>
       <Drawer
         title="举报详情"
         width={560}
@@ -211,11 +250,10 @@ export function ReportsPage() {
                 {selected.description || selected.reason || "-"}
               </Descriptions.Item>
               <Descriptions.Item label="举报人">
-                <UserSummary user={selected.reporter} />
-                {!selected.reporter ? selected.reporterID : null}
+                <ReportUser user={selected.reporter} userID={selected.reporterID} />
               </Descriptions.Item>
               <Descriptions.Item label="被举报人">
-                <UserSummary user={selected.targetUser} />
+                {selected.targetUser && <ReportUser user={selected.targetUser} />}
                 {selected.groupID ||
                   selected.postID ||
                   selected.circle?.name ||
@@ -233,44 +271,7 @@ export function ReportsPage() {
             </Descriptions>
             <div>
               <Typography.Text strong>证据</Typography.Text>
-              {selected.postID && (
-                <>
-                  <Typography.Paragraph>
-                    帖子 ID：{selected.postID}
-                  </Typography.Paragraph>
-                  {postEvidence.isLoading && (
-                    <Typography.Text>帖子加载中…</Typography.Text>
-                  )}
-                  {postEvidence.isError && (
-                    <PageError
-                      error={postEvidence.error}
-                      onRetry={() => postEvidence.refetch()}
-                      message="帖子证据不可用（可能已删除）"
-                    />
-                  )}
-                  {postEvidence.data && (
-                    <>
-                      <Typography.Paragraph>
-                        当前状态：{postEvidence.data.status}
-                      </Typography.Paragraph>
-                      <Typography.Paragraph style={{ whiteSpace: "pre-wrap" }}>
-                        {postEvidence.data.content}
-                      </Typography.Paragraph>
-                      {postEvidence.data.images.map((url, i) => (
-                        <Typography.Paragraph key={i}>
-                          {/^https?:\/\//i.test(url) ? (
-                            <a href={url} target="_blank" rel="noreferrer">
-                              图片 {i + 1}
-                            </a>
-                          ) : (
-                            url
-                          )}
-                        </Typography.Paragraph>
-                      ))}
-                    </>
-                  )}
-                </>
-              )}
+              {selected.postID && <PostDetails postID={selected.postID} />}
               {(selected.evidence || []).length ? (
                 <ul>
                   {(selected.evidence || []).map((item) => (

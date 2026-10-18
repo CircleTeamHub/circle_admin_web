@@ -71,7 +71,9 @@ const detail: AdminUserDetail = {
   },
 };
 
-function renderPage(permissions: AdminPermission[] = ["USER_READ", "AUDIT_READ"]) {
+function renderPage(
+  permissions: AdminPermission[] = ["USER_READ", "AUDIT_READ"],
+) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -118,33 +120,28 @@ describe("UserDetailPage", () => {
     ]);
   });
 
-  it(
-    "renders the user profile and authorized audit history",
-    async () => {
-      renderPage();
+  it("renders the user profile and authorized audit history", async () => {
+    renderPage();
 
-      expect((await screen.findAllByText("jim-1001")).length).toBeGreaterThan(0);
-      expect(screen.getByText("账户资料")).toBeInTheDocument();
-      expect(screen.getByText("联系信息")).toBeInTheDocument();
-      expect(screen.getByText("安全与同步")).toBeInTheDocument();
-      expect(screen.getByText("业务概览")).toBeInTheDocument();
-      expect(screen.getByText("88")).toBeInTheDocument();
-      expect(screen.getByText("120")).toBeInTheDocument();
-      expect(screen.getByText("j***@example.com")).toBeInTheDocument();
-      expect(
-        await screen.findByText("USER_SENSITIVE_FIELD_VIEWED"),
-      ).toBeInTheDocument();
-      expect(screen.getByText("会员操作需要运营权限。")).toBeInTheDocument();
-      expect(
-        screen.queryByRole("button", { name: /VIP|升级|开通/ }),
-      ).not.toBeInTheDocument();
-      expect(mockedAudit).toHaveBeenCalledWith("u1", 20);
-      expect(screen.getByRole("link", { name: "返回用户列表" })).toHaveAttribute(
-        "href",
-        "/users",
-      );
-    },
-  );
+    expect((await screen.findAllByText("jim-1001")).length).toBeGreaterThan(0);
+    expect(screen.getByText("账户资料")).toBeInTheDocument();
+    expect(screen.getByText("联系信息")).toBeInTheDocument();
+    expect(screen.getByText("安全与同步")).toBeInTheDocument();
+    expect(screen.getByText("业务概览")).toBeInTheDocument();
+    expect(screen.getByText("88")).toBeInTheDocument();
+    expect(screen.getByText("120")).toBeInTheDocument();
+    expect(screen.getByText("j***@example.com")).toBeInTheDocument();
+    expect(await screen.findByText("查看用户敏感资料")).toBeInTheDocument();
+    expect(screen.getByText("会员操作需要运营权限。")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /VIP|升级|开通/ }),
+    ).not.toBeInTheDocument();
+    expect(mockedAudit).toHaveBeenCalledWith("u1", 20);
+    expect(screen.getByRole("link", { name: "返回用户列表" })).toHaveAttribute(
+      "href",
+      "/users",
+    );
+  });
 
   it("keeps restricted actions and audit requests unavailable for read-only access", async () => {
     renderPage(["USER_READ"]);
@@ -154,7 +151,7 @@ describe("UserDetailPage", () => {
       screen.queryByRole("button", { name: "查看原文" }),
     ).not.toBeInTheDocument();
     expect(screen.queryByText("危险操作")).not.toBeInTheDocument();
-    expect(screen.queryByText("最近 Admin 操作")).not.toBeInTheDocument();
+    expect(screen.queryByText("最近管理员操作")).not.toBeInTheDocument();
     expect(screen.queryByText("avatar-frame-actions")).not.toBeInTheDocument();
     expect(
       screen.queryByRole("link", { name: "查看会员等级、有效期及发放记录" }),
@@ -166,7 +163,9 @@ describe("UserDetailPage", () => {
     renderPage(["USER_READ", "COMMERCE_MANAGE"]);
 
     expect(
-      await screen.findByRole("link", { name: "查看会员等级、有效期及发放记录" }),
+      await screen.findByRole("link", {
+        name: "查看会员等级、有效期及发放记录",
+      }),
     ).toHaveAttribute("href", "/memberships?search=jim-1001");
     expect(screen.getByText("avatar-frame-actions")).toBeInTheDocument();
     expect(mockedAudit).not.toHaveBeenCalled();
@@ -187,7 +186,9 @@ describe("UserDetailPage", () => {
     renderPage();
 
     expect(await screen.findByText("用户详情加载失败")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "返回用户列表" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "返回用户列表" }),
+    ).toBeInTheDocument();
   });
 
   it("falls back to the account id when the nickname is blank", async () => {
@@ -198,7 +199,33 @@ describe("UserDetailPage", () => {
 
     renderPage();
 
-    expect(await screen.findByRole("heading", { name: "jim-1001" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "jim-1001" }),
+    ).toBeInTheDocument();
     expect(screen.getByText("J")).toBeInTheDocument();
+  });
+
+  it("shows the same signature, birthday, greeting, cover and badges as the App profile", async () => {
+    vi.mocked(getUserDetail).mockResolvedValue({
+      ...detail,
+      profile: {
+        ...detail.profile,
+        persona: "热爱摄影",
+        helloWords: "欢迎交流",
+        birthday: "2000-01-01T00:00:00Z",
+        cover: "https://example.test/cover.jpg",
+        receivedLikeCount: 12,
+        displayIcons: [{ id: "badge", title: "圈子建设者", imageUrl: null }],
+      },
+    });
+    renderPage();
+    expect(await screen.findByText("热爱摄影")).toBeInTheDocument();
+    expect(screen.getByText("欢迎交流")).toBeInTheDocument();
+    expect(screen.getByText("2000-01-01")).toBeInTheDocument();
+    expect(screen.getByText("圈子建设者")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "个人主页封面" })).toHaveAttribute(
+      "src",
+      "https://example.test/cover.jpg",
+    );
   });
 });

@@ -1,9 +1,15 @@
+import { UserResourcesCard } from "./UserResourcesCard";
+import { Identifier, CodeValue } from "../components/ReadableValue";
+import { displayLabel } from "../utils/display";
+import { auditActionLabel } from "./audit-presentation";
+import { UserTimelineCard } from "./UserTimelineCard";
 import { useQuery } from "@tanstack/react-query";
 import {
   Avatar,
   Card,
   Col,
   Descriptions,
+  Image,
   Row,
   Space,
   Spin,
@@ -83,7 +89,13 @@ export function UserDetailPage({ currentUser }: { currentUser: AuthUser }) {
   const data = detail.data;
   const displayName = data.profile.nickname || data.profile.accountId;
   const auditColumns: ColumnsType<AdminAuditLog> = [
-    { title: "操作", dataIndex: "action" },
+    {
+      title: "操作",
+      dataIndex: "action",
+      render: (value: string) => (
+        <span title={value}>{auditActionLabel(value)}</span>
+      ),
+    },
     { title: "管理员", dataIndex: "actorAccountId" },
     { title: "原因", dataIndex: "reason", render: (value) => value || "-" },
     {
@@ -107,7 +119,9 @@ export function UserDetailPage({ currentUser }: { currentUser: AuthUser }) {
           </div>
         </Space>
         <Space>
-          <Tag>{data.profile.role}</Tag>
+          <Tag title={data.profile.role}>
+            {displayLabel("userRole", data.profile.role)}
+          </Tag>
           <Tag
             color={
               data.profile.status === "ACTIVE"
@@ -117,16 +131,89 @@ export function UserDetailPage({ currentUser }: { currentUser: AuthUser }) {
                   : "default"
             }
           >
-            {data.profile.status}
+            {displayLabel("userStatus", data.profile.status)}
           </Tag>
         </Space>
       </Space>
 
+      {data.profile.cover && (
+        <Card title="个人主页封面">
+          <Image
+            src={data.profile.cover}
+            alt="个人主页封面"
+            style={{ maxHeight: 280, objectFit: "cover" }}
+          />
+        </Card>
+      )}
+      <Card title="App 个人资料">
+        <Descriptions
+          column={{ xs: 1, md: 2 }}
+          items={[
+            {
+              key: "persona",
+              label: "个性签名",
+              children: (
+                <span style={{ whiteSpace: "pre-wrap" }}>
+                  {data.profile.persona || "未填写"}
+                </span>
+              ),
+            },
+            {
+              key: "hello",
+              label: "打招呼用语",
+              children: data.profile.helloWords || "未填写",
+            },
+            {
+              key: "birthday",
+              label: "生日",
+              children: data.profile.birthday
+                ? data.profile.birthday.slice(0, 10)
+                : "未填写",
+            },
+            {
+              key: "likes",
+              label: "累计获赞",
+              children: data.profile.receivedLikeCount ?? "未记录",
+            },
+            {
+              key: "icons",
+              label: "展示图标与徽章",
+              span: 2,
+              children: data.profile.displayIcons?.length ? (
+                <Space wrap>
+                  {data.profile.displayIcons.map((icon) => (
+                    <Space key={icon.id}>
+                      {icon.imageUrl && (
+                        <Image
+                          src={icon.imageUrl}
+                          alt={icon.title}
+                          width={32}
+                          height={32}
+                        />
+                      )}
+                      <Tag>{icon.title}</Tag>
+                      {icon.circleId && hasPermission("COMMUNITY_MANAGE") && (
+                        <Link
+                          to={`/community/circles/${encodeURIComponent(icon.circleId)}`}
+                        >
+                          {icon.circleName || "查看圈子"}
+                        </Link>
+                      )}
+                    </Space>
+                  ))}
+                </Space>
+              ) : (
+                "未设置"
+              ),
+            },
+          ]}
+        />
+      </Card>
       <div className="admin-user-card-grid">
         <Card title="账户资料">
           <Descriptions column={1} size="small">
             <Descriptions.Item label="用户 ID">
-              {data.profile.id}
+              <Identifier value={data.profile.id} inline />
             </Descriptions.Item>
             <Descriptions.Item label="账号 ID">
               {data.profile.accountId}
@@ -141,7 +228,7 @@ export function UserDetailPage({ currentUser }: { currentUser: AuthUser }) {
               {data.profile.region || "-"}
             </Descriptions.Item>
             <Descriptions.Item label="性别">
-              {data.profile.gender}
+              <CodeValue domain="gender" value={data.profile.gender} />
             </Descriptions.Item>
             <Descriptions.Item label="注册时间">
               {formatDateTime(data.profile.createdAt)}
@@ -213,6 +300,7 @@ export function UserDetailPage({ currentUser }: { currentUser: AuthUser }) {
         </Row>
       </Card>
 
+      <UserResourcesCard key={`resources:${userId}`} userID={userId} />
       {hasPermission("COMMERCE_MANAGE") && (
         <UserAvatarFramesCard key={`avatar-frames:${userId}`} userId={userId} />
       )}
@@ -230,7 +318,7 @@ export function UserDetailPage({ currentUser }: { currentUser: AuthUser }) {
       )}
 
       {hasPermission("AUDIT_READ") && (
-        <Card title="最近 Admin 操作">
+        <Card title="最近管理员操作">
           {audit.isError ? (
             <PageError
               error={audit.error}
@@ -249,6 +337,7 @@ export function UserDetailPage({ currentUser }: { currentUser: AuthUser }) {
           )}
         </Card>
       )}
+      <UserTimelineCard userID={userId} />
     </Space>
   );
 }

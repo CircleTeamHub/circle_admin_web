@@ -1,3 +1,4 @@
+import { displayLabel } from "../utils/display";
 import { useQuery } from "@tanstack/react-query";
 import {
   Avatar,
@@ -10,8 +11,8 @@ import {
   Typography,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { useMemo, useReducer, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { listUsers } from "../api/users";
 import { PageError } from "../components/PageError";
 import type { AdminUserListItem, UserRole, UserStatus } from "../types";
@@ -64,10 +65,45 @@ function toIsoDate(value?: string): string | undefined {
 
 export function UsersPage() {
   const navigate = useNavigate();
-  const [state, dispatch] = useReducer(
-    reduceUserListState,
-    initialUserListState,
-  );
+  const [search, setSearch] = useSearchParams();
+  // Email/phone searches stay in memory; they must never enter shared URLs.
+  const [keyword, setKeyword] = useState<string | undefined>();
+  const parsedPage = Number(search.get("page") ?? 1);
+  const state: UserListState = {
+    page:
+      Number.isInteger(parsedPage) && parsedPage > 0 && parsedPage <= 500
+        ? parsedPage
+        : 1,
+    limit: PAGE_SIZE,
+    keyword,
+    status: ["ACTIVE", "BANNED", "DELETED"].includes(search.get("status") ?? "")
+      ? (search.get("status") as UserStatus)
+      : undefined,
+    role: ["USER", "ADMIN"].includes(search.get("role") ?? "")
+      ? (search.get("role") as UserRole)
+      : undefined,
+    createdFrom: search.get("createdFrom") ?? undefined,
+    createdTo: search.get("createdTo") ?? undefined,
+  };
+  const dispatch = (action: UserListAction) => {
+    const next = reduceUserListState(state, action);
+    setKeyword(next.keyword);
+    setSearch((previous) => {
+      const params = new URLSearchParams(previous);
+      for (const key of [
+        "status",
+        "role",
+        "createdFrom",
+        "createdTo",
+        "page",
+      ] as const) {
+        const value = next[key];
+        if (value && value !== 1) params.set(key, String(value));
+        else params.delete(key);
+      }
+      return params;
+    });
+  };
   const [keywordDraft, setKeywordDraft] = useState("");
   const query = useMemo(
     () => ({
@@ -115,17 +151,23 @@ export function UsersPage() {
       render: (value: UserStatus) => (
         <Tag
           color={
-            value === "ACTIVE" ? "green" : value === "BANNED" ? "red" : "default"
+            value === "ACTIVE"
+              ? "green"
+              : value === "BANNED"
+                ? "red"
+                : "default"
           }
         >
-          {value}
+          {displayLabel("userStatus", value)}
         </Tag>
       ),
     },
     {
       title: "角色",
       dataIndex: "role",
-      render: (value: UserRole) => <Tag>{value}</Tag>,
+      render: (value: UserRole) => (
+        <Tag title={value}>{displayLabel("userRole", value)}</Tag>
+      ),
     },
     {
       title: "注册时间",
@@ -184,7 +226,7 @@ export function UsersPage() {
           style={{ width: 150 }}
           options={["ACTIVE", "BANNED", "DELETED"].map((value) => ({
             value,
-            label: value,
+            label: displayLabel("userStatus", value),
           }))}
         />
         <Select<UserRole>
@@ -192,13 +234,11 @@ export function UsersPage() {
           aria-label="用户角色"
           placeholder="角色"
           value={state.role}
-          onChange={(role) =>
-            dispatch({ type: "filters", patch: { role } })
-          }
+          onChange={(role) => dispatch({ type: "filters", patch: { role } })}
           style={{ width: 150 }}
           options={["USER", "MEMBER", "ADMIN"].map((value) => ({
             value,
-            label: value,
+            label: displayLabel("userRole", value),
           }))}
         />
         <Input

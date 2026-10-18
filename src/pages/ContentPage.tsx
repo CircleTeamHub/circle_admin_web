@@ -1,3 +1,6 @@
+import { PostSignupsButton } from "../components/PostSignupsButton";
+import { Identifier, CodeValue } from "../components/ReadableValue";
+import { displayLabel } from "../utils/display";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Button,
@@ -62,8 +65,11 @@ export function ContentPage() {
   });
   return (
     <Space direction="vertical" className="page-stack" size={16}>
-      <Typography.Title level={3}>内容管理</Typography.Title>
-      <Space>
+      <Typography.Title level={3}>圈子内容管理</Typography.Title>
+      <Typography.Paragraph type="secondary">
+        查看圈子动态、报名人数和报名名单，点击报名人的姓名可进入用户详情。用户笔记在用户详情查看，聊天记录在会话管理查看。
+      </Typography.Paragraph>
+      <Space wrap>
         <Input.Search
           placeholder="搜索帖子内容"
           maxLength={200}
@@ -82,7 +88,7 @@ export function ContentPage() {
           }}
           options={["ACTIVE", "ENDED", "DELETED"].map((value) => ({
             value,
-            label: value,
+            label: displayLabel("contentStatus", value),
           }))}
         />
       </Space>
@@ -91,6 +97,8 @@ export function ContentPage() {
       )}
       <Table
         rowKey="id"
+        className="content-posts-table"
+        scroll={{ x: 980 }}
         loading={posts.isLoading}
         dataSource={posts.data?.items ?? []}
         pagination={{
@@ -100,16 +108,34 @@ export function ContentPage() {
           onChange: setPage,
         }}
         columns={[
-          { title: "内容", dataIndex: "content", ellipsis: true },
-          { title: "圈子", render: (_, row) => row.circle.name },
-          { title: "状态", dataIndex: "status" },
-          { title: "举报数", dataIndex: "reportCount" },
+          { title: "内容", dataIndex: "content", width: 320, ellipsis: true },
+          { title: "圈子", width: 180, ellipsis: true, render: (_, row) => row.circle.name },
+          {
+            title: "状态",
+            width: 100,
+            dataIndex: "status",
+            render: (value: string | null) => (
+              <CodeValue domain="contentStatus" value={value} />
+            ),
+          },
+          {
+            title: "报名人数",
+            width: 100,
+            dataIndex: "signupCount",
+            render: (count: number) => `${count} 人`,
+          },
           {
             title: "操作",
+            width: 280,
+            fixed: "right",
             render: (_, post) => (
-              <Space>
-                <Button onClick={() => setSelected(post.id)}>详情</Button>
+              <div className="content-post-actions">
+                <Button type="link" size="small" onClick={() => setSelected(post.id)}>详情</Button>
+                <PostSignupsButton postID={post.id} />
+                <span className="content-post-actions-divider" aria-hidden="true" />
                 <Button
+                  type="text"
+                  size="small"
                   danger={post.status !== "DELETED"}
                   disabled={mutation.isPending}
                   onClick={() => {
@@ -123,7 +149,7 @@ export function ContentPage() {
                 >
                   {post.status === "DELETED" ? "恢复" : "下架"}
                 </Button>
-              </Space>
+              </div>
             ),
           },
         ]}
@@ -143,8 +169,21 @@ export function ContentPage() {
             <Descriptions
               column={1}
               items={[
-                { key: "id", label: "ID", children: detail.data.id },
-                { key: "status", label: "状态", children: detail.data.status },
+                {
+                  key: "id",
+                  label: "ID",
+                  children: <Identifier value={detail.data.id} inline />,
+                },
+                {
+                  key: "status",
+                  label: "状态",
+                  children: (
+                    <CodeValue
+                      domain="contentStatus"
+                      value={detail.data.status}
+                    />
+                  ),
+                },
                 {
                   key: "author",
                   label: "作者",
@@ -152,9 +191,14 @@ export function ContentPage() {
                     detail.data.author.nickname || detail.data.author.accountId,
                 },
                 {
-                  key: "reports",
-                  label: "举报数",
-                  children: detail.data.reportCount,
+                  key: "signups",
+                  label: "报名人数",
+                  children: (
+                    <Space>
+                      {detail.data.signupCount} 人{" "}
+                      <PostSignupsButton postID={detail.data.id} />
+                    </Space>
+                  ),
                 },
               ]}
             />
@@ -178,7 +222,7 @@ export function ContentPage() {
       <Modal
         title={
           action?.action === "restore"
-            ? "确认恢复帖子（恢复为 ENDED）"
+            ? "确认恢复帖子（恢复后为已结束）"
             : "确认下架帖子"
         }
         open={!!action}

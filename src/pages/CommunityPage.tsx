@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+import { Identifier } from "../components/ReadableValue";
 import {
   ExclamationCircleOutlined,
   MessageOutlined,
@@ -58,17 +60,15 @@ type PendingActionDraft =
       "idempotencyKey" | "submittedPayload"
     >;
 
-const CIRCLE_STATE: Record<
-  CircleAdminState,
-  { label: string; color: string }
-> = {
-  ACTIVE: { label: "正常", color: "green" },
-  DISABLING: { label: "停用同步中", color: "processing" },
-  DISABLED: { label: "已停用/禁言", color: "orange" },
-  RESTORING: { label: "恢复同步中", color: "processing" },
-  SYNC_FAILED: { label: "OpenIM 同步失败", color: "red" },
-  DISMISSED: { label: "群聊已永久解散", color: "red" },
-};
+const CIRCLE_STATE: Record<CircleAdminState, { label: string; color: string }> =
+  {
+    ACTIVE: { label: "正常", color: "green" },
+    DISABLING: { label: "停用同步中", color: "processing" },
+    DISABLED: { label: "已停用/禁言", color: "orange" },
+    RESTORING: { label: "恢复同步中", color: "processing" },
+    SYNC_FAILED: { label: "OpenIM 同步失败", color: "red" },
+    DISMISSED: { label: "群聊已永久解散", color: "red" },
+  };
 
 function operationLabel(type: AdminGroupOperationType) {
   return type === "MUTE"
@@ -129,7 +129,9 @@ export function CommunityPage() {
   >();
   const [groupPage, setGroupPage] = useState(1);
   const [groupSearch, setGroupSearch] = useState("");
-  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(
+    null,
+  );
   const [reason, setReason] = useState("");
   const [confirmation, setConfirmation] = useState("");
 
@@ -219,11 +221,7 @@ export function CommunityPage() {
 
   const submitPendingAction = () => {
     if (!pendingAction) return;
-    if (
-      pendingAction.kind === "circle"
-        ? circles.isError
-        : groups.isError
-    ) {
+    if (pendingAction.kind === "circle" ? circles.isError : groups.isError) {
       return;
     }
     if (pendingActionStale) return;
@@ -249,12 +247,15 @@ export function CommunityPage() {
       title: "圈子 / 关联群",
       render: (_, circle) => (
         <Space orientation="vertical" size={0}>
-          <Typography.Text strong>{circle.name}</Typography.Text>
-          <Typography.Text type="secondary" copyable>
-            {circle.id}
-          </Typography.Text>
+          <Link to={`/community/circles/${encodeURIComponent(circle.id)}`}>
+            <Typography.Text strong>{circle.name}</Typography.Text>
+          </Link>
           <Typography.Text type="secondary">
-            {circle.groupID || "未关联 OpenIM 群"}
+            {circle.associatedGroup === undefined
+              ? "群聊关联待确认"
+              : circle.associatedGroup
+                ? `群聊：${circle.associatedGroup.name || circle.name}`
+                : "尚未建立群聊"}
           </Typography.Text>
         </Space>
       ),
@@ -308,8 +309,8 @@ export function CommunityPage() {
           ["DISABLED", "SYNC_FAILED"].includes(circle.adminState) &&
           Boolean(
             circle.adminDisabledAt &&
-              circle.adminDisabledBy &&
-              circle.adminDisableReason,
+            circle.adminDisabledBy &&
+            circle.adminDisableReason,
           );
         if (circle.deleted && !canRestore && !busy) {
           return <Button disabled>不可恢复</Button>;
@@ -357,12 +358,19 @@ export function CommunityPage() {
       title: "群聊",
       render: (_, group) => (
         <Space orientation="vertical" size={0}>
-          <Typography.Text strong>{group.name || "未命名群聊"}</Typography.Text>
-          <Typography.Text type="secondary" copyable>
-            {group.groupId}
-          </Typography.Text>
+          <Link
+            to={`/community/groups/${encodeURIComponent(group.conversationId ?? group.groupId)}`}
+          >
+            <Typography.Text strong>
+              {group.name || "未命名群聊"}
+            </Typography.Text>
+          </Link>
           {group.linkedCircle ? (
-            <Tag color="purple">圈子群：{group.linkedCircle.name}</Tag>
+            <Link
+              to={`/community/circles/${encodeURIComponent(group.linkedCircle.id)}`}
+            >
+              <Tag color="purple">圈子群：{group.linkedCircle.name}</Tag>
+            </Link>
           ) : (
             <Tag>普通群</Tag>
           )}
@@ -371,7 +379,10 @@ export function CommunityPage() {
     },
     {
       title: "群主",
-      render: (_, group) => group.ownerName || group.ownerUserId || "未知",
+      render: (_, group) =>
+        group.ownerName || (
+          <Identifier value={group.ownerUserId} label="群主" />
+        ),
     },
     { title: "成员", dataIndex: "memberCount", width: 90 },
     {
@@ -381,11 +392,7 @@ export function CommunityPage() {
         const manageable = isManageableGroupStatus(group.status);
         return (
           <Space orientation="vertical" size={2}>
-            <Tag
-              color={
-                !manageable ? "red" : group.muted ? "orange" : "green"
-              }
-            >
+            <Tag color={!manageable ? "red" : group.muted ? "orange" : "green"}>
               {!manageable
                 ? "已解散/不可用"
                 : group.muted
@@ -413,6 +420,14 @@ export function CommunityPage() {
       title: "操作",
       width: 240,
       render: (_, group) => {
+        if (group.managementSupported === false)
+          return (
+            <Link
+              to={`/community/groups/${encodeURIComponent(group.conversationId ?? group.groupId)}`}
+            >
+              查看详情与成员
+            </Link>
+          );
         const manageable = isManageableGroupStatus(group.status);
         const busy =
           group.pendingOperation &&
@@ -493,7 +508,7 @@ export function CommunityPage() {
       <div>
         <Typography.Title level={3}>圈子与群聊管理</Typography.Title>
         <Typography.Text type="secondary">
-          圈子可停用恢复；群聊支持全员禁言和永久解散
+          查看圈子与群聊完整资料、成员和管理状态
         </Typography.Text>
       </div>
 
