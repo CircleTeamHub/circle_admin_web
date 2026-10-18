@@ -20,54 +20,12 @@ export interface Member {
     operatorUserID: string;
     previousLevel: number;
     newLevel: number;
+    planId?: string | null;
+    quantity?: number;
     newExpiresAt: string | null;
     note: string | null;
     createdAt: string;
   }[];
-}
-export interface Inventory {
-  id: string;
-  value: string;
-  status: string;
-  source: string;
-}
-export interface NumberOwnership {
-  id: string;
-  value: string;
-  status: string;
-  leases: {
-    user: { accountId: string };
-    expiresAt: string | null;
-    permanentAt: string | null;
-  }[];
-}
-export const listNumberOwnership = (
-  params: Record<string, string | number | undefined>,
-) =>
-  apiClient<Page<NumberOwnership>>(
-    "/admin/commerce/fancy-number-ownership" + query(params),
-  );
-export interface NumberOrder {
-  id: string;
-  type: string;
-  totalPrice: number;
-  newExpiresAt: string | null;
-  createdAt: string;
-  user: { accountId: string; nickname: string };
-  fancyNumber: {
-    value: string;
-    status: string;
-    leases: {
-      user: { accountId: string };
-      expiresAt: string | null;
-      permanentAt: string | null;
-    }[];
-  };
-  lease: {
-    endedAt: string | null;
-    expiresAt: string | null;
-    permanentAt: string | null;
-  };
 }
 export function query(params: Record<string, string | number | undefined>) {
   const q = new URLSearchParams();
@@ -87,28 +45,19 @@ export const listMembershipGrants = (id: string, cursor?: string) =>
   );
 export const grantMembership = (
   id: string,
-  body: { targetLevel: number; idempotencyKey: string; note?: string },
+  body: {
+    targetLevel: number;
+    planId?: "daily";
+    quantity?: number;
+    idempotencyKey: string;
+    note?: string;
+  },
 ) =>
   write(
     `/admin/memberships/users/${encodeURIComponent(id)}/grants`,
     "POST",
     body,
   );
-export const listInventory = (
-  params: Record<string, string | number | undefined>,
-) => apiClient<Page<Inventory>>("/admin/mall/fancy-numbers" + query(params));
-export const listNumberOrders = (
-  params: Record<string, string | number | undefined>,
-) =>
-  apiClient<Page<NumberOrder>>(
-    "/admin/commerce/fancy-number-orders" + query(params),
-  );
-export const batchNumbers = (values: string[]) =>
-  write("/admin/mall/fancy-numbers/batch", "POST", { values });
-export const toggleNumber = (id: string, enabled: boolean) =>
-  write(`/admin/mall/fancy-numbers/${encodeURIComponent(id)}/status`, "PATCH", {
-    enabled,
-  });
 function write(path: string, method: string, body: unknown) {
   return apiClient<unknown>(path, {
     method,

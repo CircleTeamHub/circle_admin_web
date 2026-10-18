@@ -1,9 +1,12 @@
+import { Identifier } from "../components/ReadableValue";
+import { membershipLabel } from "../utils/display";
 import { useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Alert,
   Button,
   Input,
+  InputNumber,
   Modal,
   Select,
   Space,
@@ -21,6 +24,21 @@ import {
 import { formatDateTime } from "../utils/format";
 import { getErrorMessage } from "../utils/errors";
 import { useSearchParams } from "react-router-dom";
+export function membershipGrantPlanLabel(grant: {
+  planId?: string | null;
+  newLevel: number;
+  quantity?: number;
+}) {
+  if (grant.planId === "daily")
+    return `每日会员（${grant.quantity ?? 1}天白银权益）`;
+  const duration: Record<number, string> = {
+    1: "1个月",
+    2: "6个月",
+    3: "12个月",
+    4: "终身",
+  };
+  return `${membershipLabel(grant.newLevel)}（${duration[grant.newLevel] ?? "未记录时长"}）`;
+}
 export function MembershipsPage() {
   const [params] = useSearchParams();
   const qc = useQueryClient();
@@ -29,7 +47,13 @@ export function MembershipsPage() {
   const [expiry, setExpiry] = useState<string>();
   const [cursor, setCursor] = useState<string>();
   const [target, setTarget] = useState<Member>();
-  const [grantLevel, setGrantLevel] = useState(1);
+  const [grantPlan, setGrantPlan] = useState("1");
+  const [dailyQuantity, setDailyQuantity] = useState<number | null>(1);
+  const validQuantity =
+    dailyQuantity !== null &&
+    Number.isInteger(dailyQuantity) &&
+    dailyQuantity >= 1 &&
+    dailyQuantity <= 30;
   const [note, setNote] = useState("");
   const key = useRef("");
   const members = useQuery({
@@ -47,7 +71,10 @@ export function MembershipsPage() {
   const mutation = useMutation({
     mutationFn: () =>
       grantMembership(target!.id, {
-        targetLevel: grantLevel,
+        targetLevel: grantPlan === "daily" ? 1 : Number(grantPlan),
+        ...(grantPlan === "daily"
+          ? { planId: "daily" as const, quantity: dailyQuantity! }
+          : {}),
         idempotencyKey: key.current,
         note: note.trim(),
       }),
@@ -55,6 +82,7 @@ export function MembershipsPage() {
     onSuccess: () => {
       setTarget(undefined);
       void qc.invalidateQueries({ queryKey: ["memberships"] });
+      void qc.invalidateQueries({ queryKey: ["membershipHistory"] });
       message.success("会员授权成功");
     },
     onError: (e) => message.error(getErrorMessage(e, "授权失败，表单已保留")),
@@ -79,7 +107,7 @@ export function MembershipsPage() {
             { value: 0, label: "普通用户" },
             ...(plans.data ?? []).map((p) => ({
               value: p.level,
-              label: p.key,
+              label: membershipLabel(p.level),
             })),
           ]}
           onChange={(v) => {
@@ -127,7 +155,21 @@ export function MembershipsPage() {
         columns={[
           { title: "账号", dataIndex: "accountId" },
           { title: "昵称", dataIndex: "nickname" },
-          { title: "存储等级", dataIndex: "vipLevel" },
+          {
+            title: "会员等级",
+            render: (_, member) => (
+              <Space orientation="vertical" size={0}>
+                <Typography.Text>
+                  {membershipLabel(member.vipLevel)}
+                </Typography.Text>
+                {member.membershipGrantsReceived[0]?.planId === "daily" && (
+                  <Typography.Text type="secondary">
+                    最近授权：每日会员
+                  </Typography.Text>
+                )}
+              </Space>
+            ),
+          },
           {
             title: "到期时间",
             render: (_, r) =>
@@ -146,8 +188,9 @@ export function MembershipsPage() {
                 }
                 onClick={() => {
                   setTarget(r);
-                  setGrantLevel(Math.min(4, Math.max(1, r.vipLevel)));
+                  setGrantPlan(String(Math.min(4, Math.max(1, r.vipLevel))));
                   setNote("");
+                  setDailyQuantity(1);
                   key.current = crypto.randomUUID();
                 }}
               >
@@ -165,9 +208,37 @@ export function MembershipsPage() {
                 pagination={false}
                 dataSource={r.membershipGrantsReceived}
                 columns={[
-                  { title: "原等级", dataIndex: "previousLevel" },
-                  { title: "新等级", dataIndex: "newLevel" },
-                  { title: "操作人", dataIndex: "operatorUserID" },
+                  {
+                    title: "原等级",
+                    dataIndex: "previousLevel",
+                    render: membershipLabel,
+                  },
+                  {
+                    title: "新等级",
+                    dataIndex: "newLevel",
+                    render: membershipLabel,
+                  },
+                  {
+                    title: "授权方案",
+                    render: (_, grant) => membershipGrantPlanLabel(grant),
+                  },
+                  {
+                    title: "授权后到期",
+                    dataIndex: "newExpiresAt",
+                    render: (value: string | null, grant) =>
+                      grant.newLevel === 4
+                        ? "终身"
+                        : value
+                          ? formatDateTime(value)
+                          : "未记录",
+                  },
+                  {
+                    title: "操作人",
+                    dataIndex: "operatorUserID",
+                    render: (value: string) => (
+                      <Identifier value={value} label="操作人" />
+                    ),
+                  },
                   { title: "备注", dataIndex: "note" },
                   {
                     title: "时间",
@@ -226,9 +297,33 @@ export function MembershipsPage() {
           pagination={false}
           dataSource={history.data?.items ?? []}
           columns={[
-            { title: "原等级", dataIndex: "previousLevel" },
-            { title: "新等级", dataIndex: "newLevel" },
-            { title: "操作人", dataIndex: "operatorUserID" },
+            {
+              title: "原等级",
+              dataIndex: "previousLevel",
+              render: membershipLabel,
+            },
+            { title: "新等级", dataIndex: "newLevel", render: membershipLabel },
+            {
+              title: "授权方案",
+              render: (_, grant) => membershipGrantPlanLabel(grant),
+            },
+            {
+              title: "授权后到期",
+              dataIndex: "newExpiresAt",
+              render: (value: string | null, grant) =>
+                grant.newLevel === 4
+                  ? "终身"
+                  : value
+                    ? formatDateTime(value)
+                    : "未记录",
+            },
+            {
+              title: "操作人",
+              dataIndex: "operatorUserID",
+              render: (value: string) => (
+                <Identifier value={value} label="操作人" />
+              ),
+            },
             { title: "备注", dataIndex: "note" },
             { title: "时间", dataIndex: "createdAt", render: formatDateTime },
           ]}
@@ -250,29 +345,61 @@ export function MembershipsPage() {
       </Modal>
       <Modal
         title={`激活 / 升级 ${target?.accountId ?? ""}`}
+        okText="确认发放"
         open={!!target}
         confirmLoading={mutation.isPending}
+        okButtonProps={{ disabled: grantPlan === "daily" && !validQuantity }}
         cancelButtonProps={{ disabled: mutation.isPending }}
         onCancel={() => {
           if (!mutation.isPending) setTarget(undefined);
         }}
         onOk={() => {
-          if (!mutation.isPending) mutation.mutate();
+          if (!mutation.isPending && (grantPlan !== "daily" || validQuantity))
+            mutation.mutate();
         }}
       >
         <Alert
           type="info"
-          title="此操作将写入授权审计并发放对应权益。请核实目标账号与等级。"
+          title="此处发放会员权益并记录审计，不会自动收款。每日会员每份提供24小时白银权益，一次最多30份；有效的白银会员会从现有到期时间继续增加天数，不会降低或缩短现有权益。"
         />
         <Select
-          value={grantLevel}
+          aria-label="会员开通方案"
+          value={grantPlan}
           disabled={mutation.isPending}
-          options={(plans.data ?? []).map((p) => ({
-            value: p.level,
-            label: `${p.key} (${p.priceCny} CNY)`,
-          }))}
-          onChange={setGrantLevel}
+          style={{ width: "100%" }}
+          options={[
+            ...((plans.data ?? []).some((p) => p.level === 1)
+              ? [{ value: "daily", label: "每日会员（1天白银权益，19.9元）" }]
+              : []),
+            ...(plans.data ?? []).map((p) => ({
+              value: String(p.level),
+              label: `${membershipLabel(p.level)}（${p.priceCny} 元）`,
+            })),
+          ]}
+          onChange={setGrantPlan}
         />
+        {grantPlan === "daily" && (
+          <Space
+            orientation="vertical"
+            style={{ marginTop: 12, marginBottom: 12 }}
+          >
+            <Typography.Text>每日会员数量（1～30份，每份1天）</Typography.Text>
+            <InputNumber
+              aria-label="每日会员数量"
+              min={1}
+              max={30}
+              precision={0}
+              value={dailyQuantity}
+              disabled={mutation.isPending}
+              onChange={(v) => setDailyQuantity(v)}
+            />
+            <Typography.Text type={validQuantity ? "secondary" : "danger"}>
+              {validQuantity
+                ? `本次增加 ${dailyQuantity} 天白银权益；此处只发放权益，不自动扣款。`
+                : "请输入1至30的整数"}
+            </Typography.Text>
+          </Space>
+        )}
         <Input.TextArea
           placeholder="授权备注"
           value={note}

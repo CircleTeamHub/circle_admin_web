@@ -47,10 +47,7 @@ const mockedToggleCode = vi.mocked(setSupportRechargePaymentCodeEnabled);
 const mockedUpdateCode = vi.mocked(updateSupportRechargePaymentCode);
 const mockedUpload = vi.mocked(uploadSupportRechargeImage);
 
-function paymentCode(
-  id: string,
-  enabled: boolean,
-): SupportRechargePaymentCode {
+function paymentCode(id: string, enabled: boolean): SupportRechargePaymentCode {
   return {
     id,
     label: `收款码 ${id}`,
@@ -207,9 +204,7 @@ describe("SupportRechargePage review safety", () => {
     fireEvent.change(await screen.findByLabelText("积分数量"), {
       target: { value: "100" },
     });
-    fireEvent.click(
-      screen.getByRole("button", { name: "确认付款并发放" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "确认付款并发放" }));
 
     await waitFor(() => expect(mockedApprove).toHaveBeenCalledTimes(1));
     expect(mockedApprove).toHaveBeenCalledWith("A", {
@@ -224,9 +219,7 @@ describe("SupportRechargePage review safety", () => {
       pending.resolve(order("A", { status: "APPROVED" }));
     });
     await waitFor(() =>
-      expect(
-        screen.getByText("核对并发放 · RC-A"),
-      ).not.toBeVisible(),
+      expect(screen.getByText("核对并发放 · RC-A")).not.toBeVisible(),
     );
   });
 
@@ -340,9 +333,8 @@ describe("SupportRechargePage review safety", () => {
       target: { value: "2026-08-29T10:00" },
     });
     const file = new File(["image"], "收款码.png", { type: "image/png" });
-    const fileInput = document.querySelector<HTMLInputElement>(
-      'input[type="file"]',
-    );
+    const fileInput =
+      document.querySelector<HTMLInputElement>('input[type="file"]');
     if (!fileInput) throw new Error("Missing payment-code file input");
     fireEvent.change(fileInput, { target: { files: [file] } });
     await screen.findByText("收款码.png");
@@ -380,6 +372,11 @@ describe("SupportRechargePage review safety", () => {
       }),
     );
     expect(mockedUpload).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", { name: "保存修改" }),
+      ).not.toBeInTheDocument(),
+    );
   });
 
   it("uploads a replacement image when editing a payment code", async () => {
@@ -391,9 +388,8 @@ describe("SupportRechargePage review safety", () => {
     const replacement = new File(["replacement"], "新收款码.webp", {
       type: "image/webp",
     });
-    const fileInput = document.querySelector<HTMLInputElement>(
-      'input[type="file"]',
-    );
+    const fileInput =
+      document.querySelector<HTMLInputElement>('input[type="file"]');
     if (!fileInput) throw new Error("Missing payment-code file input");
     fireEvent.change(fileInput, { target: { files: [replacement] } });
     await screen.findByText("新收款码.webp");
@@ -410,6 +406,11 @@ describe("SupportRechargePage review safety", () => {
     expect(mockedUpload).toHaveBeenCalledWith(
       expect.objectContaining({ name: "新收款码.webp", type: "image/webp" }),
     );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", { name: "保存修改" }),
+      ).not.toBeInTheDocument(),
+    );
   });
 
   it("keeps payment-code edits visible after a save failure", async () => {
@@ -425,9 +426,9 @@ describe("SupportRechargePage review safety", () => {
     fireEvent.click(screen.getByRole("button", { name: "保存修改" }));
 
     await waitFor(() => expect(mockedUpdateCode).toHaveBeenCalledTimes(1));
-    expect(
-      screen.getByRole("button", { name: "保存修改" }),
-    ).toBeEnabled();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /保存修改/ })).toBeEnabled(),
+    );
     expect(screen.getByLabelText("支付方式说明")).toHaveValue("待重试说明");
   });
 
@@ -462,8 +463,14 @@ describe("SupportRechargePage review safety", () => {
     expect(await screen.findByText("积分 500")).toBeInTheDocument();
     expect(screen.getByText("备注：线下已核对")).toBeInTheDocument();
     expect(screen.getByText("驳回：支付平台未查到交易")).toBeInTheDocument();
-    expect(screen.getByText(/审核人：admin-1/)).toBeInTheDocument();
-    expect(screen.getByText(/审核人：admin-2/)).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole("button", { name: "编号详情" })[0]);
+    expect(screen.getByTitle("admin-1")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Close|关闭/ }));
+    await waitFor(() =>
+      expect(screen.queryByTitle("admin-1")).not.toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getAllByRole("button", { name: "编号详情" })[1]);
+    expect(screen.getByTitle("admin-2")).toBeInTheDocument();
     expect(screen.getByText("发放详情未记录")).toBeInTheDocument();
   });
 });

@@ -1,3 +1,4 @@
+import { Identifier } from "../components/ReadableValue";
 import {
   CheckCircleOutlined,
   EditOutlined,
@@ -102,7 +103,9 @@ function orderOutcome(row: SupportRechargeOrder) {
         </Typography.Text>
         {row.reviewedBy ? (
           <Typography.Text type="secondary">
-            审核人：{row.reviewedBy} · {formatDateTime(row.reviewedAt)}
+            审核人：
+            <Identifier value={row.reviewedBy} /> ·{" "}
+            {formatDateTime(row.reviewedAt)}
           </Typography.Text>
         ) : null}
       </Space>
@@ -121,7 +124,7 @@ function orderOutcome(row: SupportRechargeOrder) {
   return (
     <Space orientation="vertical" size={0}>
       {row.paymentTransactionID ? (
-        <Typography.Text copyable>{row.paymentTransactionID}</Typography.Text>
+        <Identifier value={row.paymentTransactionID} inline />
       ) : null}
       <Typography.Text>{benefit}</Typography.Text>
       {payload?.note ? (
@@ -129,7 +132,9 @@ function orderOutcome(row: SupportRechargeOrder) {
       ) : null}
       {row.reviewedBy ? (
         <Typography.Text type="secondary">
-          审核人：{row.reviewedBy} · {formatDateTime(row.reviewedAt)}
+          审核人：
+          <Identifier value={row.reviewedBy} /> ·{" "}
+          {formatDateTime(row.reviewedAt)}
         </Typography.Text>
       ) : null}
     </Space>
@@ -228,8 +233,7 @@ export function SupportRechargePage() {
       setEditingCode(null);
       codeForm.resetFields();
     },
-    onError: (error) =>
-      message.error(getErrorMessage(error, "保存收款码失败")),
+    onError: (error) => message.error(getErrorMessage(error, "保存收款码失败")),
     onSettled: refreshCodes,
   });
 
@@ -330,7 +334,7 @@ export function SupportRechargePage() {
       title: "申请",
       render: (_, row) => (
         <Space orientation="vertical" size={0}>
-          <Typography.Text copyable>{row.orderNo}</Typography.Text>
+          <Identifier value={row.orderNo} inline />
           <Typography.Text type="secondary">
             {REQUEST_LABELS[row.requestKind]}
           </Typography.Text>
@@ -340,7 +344,11 @@ export function SupportRechargePage() {
     {
       title: "用户",
       render: (_, row) =>
-        row.user ? `${row.user.nickname} (${row.user.accountId})` : row.userID,
+        row.user ? (
+          `${row.user.nickname} (${row.user.accountId})`
+        ) : (
+          <Identifier value={row.userID} label="用户" />
+        ),
     },
     {
       title: "付款记录",
@@ -386,7 +394,9 @@ export function SupportRechargePage() {
               </Button>
             ) : null}
           </Space>
-        ) : orderOutcome(row),
+        ) : (
+          orderOutcome(row)
+        ),
     },
   ];
 
