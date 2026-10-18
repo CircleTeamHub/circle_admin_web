@@ -1,3 +1,5 @@
+import { DashboardGrowthPanel } from "./DashboardGrowthPanel";
+import { displayLabel } from "../utils/display";
 import {
   AlertOutlined,
   ReloadOutlined,
@@ -18,10 +20,11 @@ import {
   Space,
   Statistic,
   Tag,
+  Tabs,
   Typography,
 } from "antd";
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, Navigate, useSearchParams } from "react-router-dom";
 import {
   getDashboard,
   type DashboardRange,
@@ -38,10 +41,10 @@ const RANGE_OPTIONS: Array<{ label: string; value: DashboardRange }> = [
 
 function opsLinks() {
   return [
-    ["Grafana", import.meta.env.VITE_GRAFANA_URL],
-    ["Sentry", import.meta.env.VITE_SENTRY_URL],
-    ["Uptime Kuma", import.meta.env.VITE_UPTIME_KUMA_URL],
-    ["Alertmanager", import.meta.env.VITE_ALERTMANAGER_URL],
+    ["监控看板（Grafana）", import.meta.env.VITE_GRAFANA_URL],
+    ["错误追踪（Sentry）", import.meta.env.VITE_SENTRY_URL],
+    ["可用性监控（Uptime Kuma）", import.meta.env.VITE_UPTIME_KUMA_URL],
+    ["告警管理（Alertmanager）", import.meta.env.VITE_ALERTMANAGER_URL],
   ].filter(([, url]) => !!url);
 }
 
@@ -83,7 +86,7 @@ function SignupTrend({
 }) {
   const maximum = Math.max(1, ...values.map((item) => item.value));
   return (
-    <div className="dashboard-trend" aria-label="新增用户趋势">
+    <div className="dashboard-trend" aria-label="每天新增用户">
       {values.map((item) => (
         <div className="dashboard-trend-column" key={item.date}>
           <Typography.Text type="secondary">{item.value}</Typography.Text>
@@ -100,7 +103,50 @@ function SignupTrend({
   );
 }
 
+export function LegacyInsightsRedirect() {
+  const [search] = useSearchParams();
+  const next = new URLSearchParams({ tab: "growth" });
+  const days = search.get("days");
+  if (days) next.set("days", days);
+  return <Navigate to={`/?${next}`} replace />;
+}
 export function DashboardPage() {
+  const [search, setSearch] = useSearchParams();
+  const activeKey = search.get("tab") === "growth" ? "growth" : "overview";
+  return (
+    <Space orientation="vertical" className="page-stack" size={16}>
+      <Typography.Title level={3}>数据看板</Typography.Title>
+      <Typography.Paragraph type="secondary">
+        统一查看用户、圈子、会员和积分数据。运营概览看整体情况，用户使用情况看新用户做了什么、之后有没有回来使用。
+      </Typography.Paragraph>
+      <Tabs
+        activeKey={activeKey}
+        destroyOnHidden
+        onChange={(key) =>
+          setSearch((prev) => {
+            const next = new URLSearchParams(prev);
+            if (key === "growth") next.set("tab", key);
+            else next.delete("tab");
+            return next;
+          })
+        }
+        items={[
+          {
+            key: "overview",
+            label: "运营概览",
+            children: <DashboardOverview />,
+          },
+          {
+            key: "growth",
+            label: "用户使用情况",
+            children: <DashboardGrowthPanel />,
+          },
+        ]}
+      />
+    </Space>
+  );
+}
+function DashboardOverview() {
   const [range, setRange] = useState<DashboardRange>("today");
   const dashboard = useQuery({
     queryKey: ["adminDashboard", range],
@@ -119,7 +165,9 @@ export function DashboardPage() {
     <Space orientation="vertical" size={16} className="page-stack">
       <Space className="page-title-row" align="start">
         <div>
-          <Typography.Title level={3}>运营驾驶舱</Typography.Title>
+          <Typography.Title level={4} style={{ margin: 0 }}>
+            运营概览
+          </Typography.Title>
           <Typography.Text type="secondary">
             用户、社区、商城与系统状态统一总览
           </Typography.Text>
@@ -168,7 +216,7 @@ export function DashboardPage() {
         <Col xs={24} md={12} xl={6}>
           <Card loading={dashboard.isLoading}>
             <Statistic
-              title="活跃用户"
+              title="使用人数"
               value={users?.activeUsers ?? "--"}
               prefix={<RiseOutlined />}
               suffix={
@@ -210,7 +258,7 @@ export function DashboardPage() {
       <Typography.Title level={4}>用户与社区运营</Typography.Title>
       <Row gutter={[16, 16]}>
         <Col xs={24} xl={16}>
-          <Card title="新增用户趋势" loading={dashboard.isLoading}>
+          <Card title="每天新增用户" loading={dashboard.isLoading}>
             {!dashboard.data ? (
               <SectionPending title="用户数据" />
             ) : dashboard.data.sections.users.status === "error" ? (
@@ -249,14 +297,14 @@ export function DashboardPage() {
         </Col>
       </Row>
 
-      <Typography.Title level={4}>商城经营</Typography.Title>
+      <Typography.Title level={4}>会员与积分</Typography.Title>
       {!dashboard.data ? (
         <SectionPending title="商城数据" />
       ) : dashboard.data.sections.commerce.status === "error" ? (
         <SectionUnavailable title="商城数据" />
       ) : (
         <Row gutter={[16, 16]}>
-          <Col xs={24} sm={12} xl={6}>
+          <Col xs={24} sm={12} xl={8}>
             <Card>
               <Statistic
                 title="有效会员"
@@ -267,19 +315,7 @@ export function DashboardPage() {
               </Typography.Text>
             </Card>
           </Col>
-          <Col xs={24} sm={12} xl={6}>
-            <Card>
-              <Statistic
-                title="使用中靓号"
-                value={commerce?.activeFancyNumbers ?? 0}
-              />
-              <Typography.Text type="secondary">
-                {commerce?.fancyNumberOrders ?? 0} 笔订单 ·{" "}
-                {commerce?.fancyNumberSpend ?? 0} 积分
-              </Typography.Text>
-            </Card>
-          </Col>
-          <Col xs={24} sm={12} xl={6}>
+          <Col xs={24} sm={12} xl={8}>
             <Card>
               <Statistic
                 title="扩容卡订单"
@@ -290,7 +326,7 @@ export function DashboardPage() {
               </Typography.Text>
             </Card>
           </Col>
-          <Col xs={24} sm={12} xl={6}>
+          <Col xs={24} sm={12} xl={8}>
             <Card>
               <Statistic
                 title="积分充值"
@@ -304,7 +340,7 @@ export function DashboardPage() {
         </Row>
       )}
 
-      <Typography.Title level={4}>治理与系统健康</Typography.Title>
+      <Typography.Title level={4}>举报处理与服务状态</Typography.Title>
       <Row gutter={[16, 16]}>
         <Col xs={24} xl={12}>
           <Card
@@ -317,9 +353,9 @@ export function DashboardPage() {
             extra={<Link to="/reports">审核用户举报</Link>}
           >
             {!dashboard.data ? (
-              <SectionPending title="治理数据" />
+              <SectionPending title="举报处理数据" />
             ) : dashboard.data.sections.moderation.status === "error" ? (
-              <SectionUnavailable title="治理数据" />
+              <SectionUnavailable title="举报处理数据" />
             ) : (
               <Descriptions column={1} size="small">
                 <Descriptions.Item label="待处理总计">
@@ -348,17 +384,23 @@ export function DashboardPage() {
               <Space wrap>
                 {(
                   [
-                    ["API", system?.services.api],
+                    ["接口服务", system?.services.api],
                     ["数据库", system?.services.database],
-                    ["Redis", system?.services.redis],
+                    ["缓存服务", system?.services.redis],
                   ] as const
                 ).map(([name, status]) => (
                   <Tag
                     key={name}
-                    color={status === "healthy" ? "green" : "red"}
+                    color={
+                      status === "healthy"
+                        ? "green"
+                        : status === "down"
+                          ? "red"
+                          : "default"
+                    }
                   >
                     <span>{name}</span>{" "}
-                    <span>{status === "healthy" ? "正常" : "异常"}</span>
+                    <span>{displayLabel("health", status)}</span>
                   </Tag>
                 ))}
               </Space>

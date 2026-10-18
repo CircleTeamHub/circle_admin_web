@@ -1,3 +1,11 @@
+import { UserContentDetailPage } from "../pages/UserContentDetailPage";
+import { GroupDetailPage } from "../pages/GroupDetailPage";
+import { CircleDetailPage } from "../pages/CircleDetailPage";
+import { PushOperationsPage } from "../pages/PushOperationsPage";
+import { TasksPage } from "../pages/TasksPage";
+import { ReleasesPage } from "../pages/ReleasesPage";
+import { DiagnosticsPage, UserEventsPage } from "../pages/DiagnosticsPage";
+import { ApiKeysPage } from "../pages/ApiKeysPage";
 import {
   QueryClient,
   QueryClientProvider,
@@ -17,16 +25,15 @@ import {
   subscribeSession,
   type SessionTokens,
 } from "../auth/session";
-import { DashboardPage } from "../pages/DashboardPage";
+import { DashboardPage, LegacyInsightsRedirect } from "../pages/DashboardPage";
 import { CommunityPage } from "../pages/CommunityPage";
-import { FancyNumbersPage } from "../pages/FancyNumbersPage";
 import { SupportAgentsPage } from "../pages/SupportAgentsPage";
 import { LoginPage } from "../pages/LoginPage";
 import { ReportsPage } from "../pages/ReportsPage";
 import { SystemStatusPage } from "../pages/SystemStatusPage";
 import { UsersPage } from "../pages/UsersPage";
 import { UserDetailPage } from "../pages/UserDetailPage";
-import { apiClient } from "../api/client";
+import { ApiError, apiClient } from "../api/client";
 import {
   AdminAccessContext,
   RequirePermission,
@@ -34,7 +41,6 @@ import {
 } from "../auth/admin-access";
 import { MembershipsPage } from "../pages/MembershipsPage";
 import { SupportRechargePage } from "../pages/SupportRechargePage";
-import { FancyInventoryPage } from "../pages/FancyInventoryPage";
 import { ContentPage } from "../pages/ContentPage";
 import { SensitiveWordsPage } from "../pages/SensitiveWordsPage";
 import { AnnouncementsPage } from "../pages/AnnouncementsPage";
@@ -42,7 +48,6 @@ import { ImPage } from "../pages/ImPage";
 import { GroupMembersPage } from "../pages/GroupMembersPage";
 import { AuditLogsPage } from "../pages/AuditLogsPage";
 import { InvitesPage } from "../pages/InvitesPage";
-import { AdsPage } from "../pages/AdsPage";
 import { AdminAccessPage } from "../pages/AdminAccessPage";
 
 const queryClient = new QueryClient({
@@ -88,7 +93,8 @@ function AdminRoutes({
     currentPermissions.current = signature;
   }, [access.data]);
   useEffect(() => {
-    if (session && me.isError) clearSession();
+    if (session && me.error instanceof ApiError && me.error.status === 401)
+      clearSession();
   }, [session, me.isError]);
 
   if (session && me.isLoading) {
@@ -96,12 +102,20 @@ function AdminRoutes({
   }
 
   if (session && me.isError) {
-    return <Navigate to="/login" replace />;
+    return (
+      <Result
+        status="500"
+        title="暂时无法连接后台"
+        subTitle="登录状态已保留，请确认后端服务正常后重试。"
+        extra={<Button onClick={() => void me.refetch()}>重试</Button>}
+      />
+    );
   }
 
   if (!session) {
     return <Navigate to="/login" replace />;
   }
+
 
   if (
     me.data?.role === "ADMIN" &&
@@ -118,7 +132,11 @@ function AdminRoutes({
       <Result
         status="403"
         title="无法读取管理员权限"
-        subTitle="请联系超级管理员分配权限，或重试加载。"
+        subTitle={
+          access.error instanceof ApiError && access.error.status === 403
+            ? "当前账号没有分配管理员权限，请联系超级管理员。"
+            : "权限服务暂时不可用，请确认后端运行正常后重试；登录状态已保留。"
+        }
         extra={<Button onClick={() => access.refetch()}>重试</Button>}
       />
     );
@@ -129,6 +147,63 @@ function AdminRoutes({
         <AdminAccessContext.Provider value={access.data ?? null}>
           <Routes>
             <Route element={<AppLayout user={me.data} />}>
+              <Route
+                path="push-operations"
+                element={
+                  <RequirePermission permission="SUPPORT_MANAGE">
+                    <PushOperationsPage />
+                  </RequirePermission>
+                }
+              />
+              <Route
+                path="tasks"
+                element={
+                  <RequirePermission permission="DASHBOARD">
+                    <TasksPage />
+                  </RequirePermission>
+                }
+              />
+              <Route
+                path="insights"
+                element={
+                  <RequirePermission permission="DASHBOARD">
+                    <LegacyInsightsRedirect />
+                  </RequirePermission>
+                }
+              />
+              <Route
+                path="releases"
+                element={
+                  <RequirePermission permission="CONTENT_MANAGE">
+                    <ReleasesPage />
+                  </RequirePermission>
+                }
+              />
+              <Route
+                path="user-events"
+                element={
+                  <RequirePermission permission="AUDIT_READ">
+                    <UserEventsPage />
+                  </RequirePermission>
+                }
+              />
+              <Route
+                path="diagnostics"
+                element={
+                  <RequirePermission permission="AUDIT_READ">
+                    <DiagnosticsPage />
+                  </RequirePermission>
+                }
+              />
+              <Route
+                path="automation-keys"
+                element={
+                  <RequirePermission permission="ACCESS_MANAGE">
+                    <ApiKeysPage />
+                  </RequirePermission>
+                }
+              />
+
               <Route
                 index
                 element={
@@ -148,18 +223,26 @@ function AdminRoutes({
                 }
               />
               <Route
-                path="community"
+                path="community/circles/:circleId"
                 element={
                   <RequirePermission permission="COMMUNITY_MANAGE">
-                    <CommunityPage />
+                    <CircleDetailPage />
                   </RequirePermission>
                 }
               />
               <Route
-                path="fancy-numbers"
+                path="community/groups/:conversationId"
                 element={
-                  <RequirePermission permission="COMMERCE_MANAGE">
-                    <FancyNumbersPage />
+                  <RequirePermission permission="COMMUNITY_MANAGE">
+                    <GroupDetailPage />
+                  </RequirePermission>
+                }
+              />
+              <Route
+                path="community"
+                element={
+                  <RequirePermission permission="COMMUNITY_MANAGE">
+                    <CommunityPage />
                   </RequirePermission>
                 }
               />
@@ -176,6 +259,22 @@ function AdminRoutes({
                 element={
                   <RequirePermission permission="USER_READ">
                     <UsersPage />
+                  </RequirePermission>
+                }
+              />
+              <Route
+                path="users/:userId/posts/:resourceId"
+                element={
+                  <RequirePermission permission="MODERATION_MANAGE">
+                    <UserContentDetailPage kind="posts" />
+                  </RequirePermission>
+                }
+              />
+              <Route
+                path="users/:userId/notes/:resourceId"
+                element={
+                  <RequirePermission permission="MODERATION_MANAGE">
+                    <UserContentDetailPage kind="notes" />
                   </RequirePermission>
                 }
               />
@@ -216,14 +315,6 @@ function AdminRoutes({
                 element={
                   <RequirePermission permission="RECHARGE_MANAGE">
                     <Navigate to="/recharge" replace />
-                  </RequirePermission>
-                }
-              />
-              <Route
-                path="fancy-inventory"
-                element={
-                  <RequirePermission permission="COMMERCE_MANAGE">
-                    <FancyInventoryPage />
                   </RequirePermission>
                 }
               />
@@ -280,14 +371,6 @@ function AdminRoutes({
                 element={
                   <RequirePermission permission="CONTENT_MANAGE">
                     <InvitesPage />
-                  </RequirePermission>
-                }
-              />
-              <Route
-                path="ads"
-                element={
-                  <RequirePermission permission="CONTENT_MANAGE">
-                    <AdsPage />
                   </RequirePermission>
                 }
               />

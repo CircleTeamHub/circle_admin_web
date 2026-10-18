@@ -12,6 +12,7 @@ vi.mock("../api/auth", async (importOriginal) => {
 
 vi.mock("../pages/DashboardPage", () => ({
   DashboardPage: () => <div>dashboard-ready</div>,
+  LegacyInsightsRedirect: () => null,
 }));
 
 vi.mock("../api/client", async (importOriginal) => {
@@ -63,4 +64,5 @@ describe("App authentication state", () => {
     expect(screen.queryByText("dashboard-ready")).not.toBeInTheDocument();
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
+
 });

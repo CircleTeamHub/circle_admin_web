@@ -6,16 +6,18 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { consoleApi } from "../api/console";
 import { getDashboard, type AdminDashboard } from "../api/dashboard";
-import { DashboardPage } from "./DashboardPage";
+import { DashboardPage, LegacyInsightsRedirect } from "./DashboardPage";
 
 vi.mock("../api/dashboard", async (importOriginal) => {
   const original = await importOriginal<typeof import("../api/dashboard")>();
   return { ...original, getDashboard: vi.fn() };
 });
 
+vi.mock("../api/console", () => ({ consoleApi: { analytics: vi.fn() } }));
 const mockedGetDashboard = vi.mocked(getDashboard);
 
 const dashboard: AdminDashboard = {
@@ -80,33 +82,48 @@ const dashboard: AdminDashboard = {
   },
 };
 
-function renderPage() {
+function renderPage(entry = "/") {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[entry]}>
       <QueryClientProvider client={client}>
-        <DashboardPage />
+        <Routes>
+          <Route path="/" element={<DashboardPage />} />
+          <Route path="/insights" element={<LegacyInsightsRedirect />} />
+        </Routes>
       </QueryClientProvider>
     </MemoryRouter>,
   );
 }
 
-describe("DashboardPage", () => {
-  beforeEach(() => {
-    mockedGetDashboard.mockReset();
-    mockedGetDashboard.mockResolvedValue(dashboard);
+beforeEach(() => {
+  vi.mocked(consoleApi.analytics).mockReset();
+  vi.mocked(consoleApi.analytics).mockResolvedValue({
+    generatedAt: "2026-10-17T00:00:00Z",
+    timezone: "Asia/Shanghai",
+    collectionStartedAt: null,
+    daily: [],
+    features: [],
+    retention: [],
+    funnel: { registered: 10, opened: 8, joined: 4, messaged: 2 },
+    definitions: {},
   });
+  mockedGetDashboard.mockReset();
+  mockedGetDashboard.mockResolvedValue(dashboard);
+});
 
+describe("DashboardPage", () => {
   it("shows user, commerce, moderation, and system metrics", async () => {
     renderPage();
 
     expect(await screen.findByText("12,580")).toBeInTheDocument();
     expect(screen.getByText("积分消费")).toBeInTheDocument();
-    expect(screen.getByText("商城经营")).toBeInTheDocument();
-    expect(screen.getByText("治理与系统健康")).toBeInTheDocument();
-    expect(screen.getByText("Redis")).toBeInTheDocument();
+    expect(screen.getByText("会员与积分")).toBeInTheDocument();
+    expect(screen.queryByText("使用中靓号")).not.toBeInTheDocument();
+    expect(screen.getByText("举报处理与服务状态")).toBeInTheDocument();
+    expect(screen.getByText("缓存服务")).toBeInTheDocument();
     expect(screen.getByText(/统计区间（Asia\/Shanghai）/)).toBeInTheDocument();
     expect(screen.getByText(/2026\/07\/29 00:00:00/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "审核用户举报" })).toHaveAttribute(
@@ -163,13 +180,13 @@ describe("DashboardPage", () => {
 
     expect(await screen.findByText("Dashboard 加载失败")).toBeInTheDocument();
     expect(screen.getByText("系统状态尚未获取")).toBeInTheDocument();
-    expect(screen.queryByText("API 异常")).not.toBeInTheDocument();
+    expect(screen.queryByText("接口服务 异常")).not.toBeInTheDocument();
     expect(screen.queryByText("数据库异常")).not.toBeInTheDocument();
-    expect(screen.queryByText("Redis 异常")).not.toBeInTheDocument();
+    expect(screen.queryByText("缓存服务 异常")).not.toBeInTheDocument();
     expect(screen.getByText("用户数据尚未获取")).toBeInTheDocument();
     expect(screen.getByText("社区数据尚未获取")).toBeInTheDocument();
     expect(screen.getByText("商城数据尚未获取")).toBeInTheDocument();
-    expect(screen.getByText("治理数据尚未获取")).toBeInTheDocument();
+    expect(screen.getByText("举报处理数据尚未获取")).toBeInTheDocument();
     expect(screen.queryByText("圈子总数")).not.toBeInTheDocument();
     expect(screen.queryByText("有效会员")).not.toBeInTheDocument();
     expect(screen.queryByText("待处理总计")).not.toBeInTheDocument();
@@ -189,7 +206,7 @@ describe("DashboardPage", () => {
 
     renderPage();
 
-    for (const title of ["用户总数", "活跃用户", "积分消费", "待处理事项"]) {
+    for (const title of ["用户总数", "使用人数", "积分消费", "待处理事项"]) {
       const card = (await screen.findByText(title)).closest(".ant-statistic");
       expect(card).not.toBeNull();
       expect(within(card as HTMLElement).getByText("--")).toBeInTheDocument();
@@ -212,4 +229,35 @@ describe("DashboardPage", () => {
     expect(row).not.toBeNull();
     expect(within(row as HTMLElement).getByText("--")).toBeInTheDocument();
   });
+});
+
+it("combines overview and growth with on-demand queries and preserves analysis time ranges", async () => {
+  renderPage();
+  await screen.findByText("12,580");
+  expect(consoleApi.analytics).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("tab", { name: "用户使用情况" }));
+  expect(await screen.findByText("注册后还有多少人回来使用")).toBeInTheDocument();
+  expect(consoleApi.analytics).toHaveBeenCalledWith(30);
+  expect(screen.getByRole("heading", { name: "数据看板" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("tab", { name: "运营概览" }));
+  expect(await screen.findByText("12,580")).toBeInTheDocument();
+  expect(screen.queryByText("注册后还有多少人回来使用")).not.toBeInTheDocument();
+});
+it("redirects old insights links into the dashboard growth tab without losing the selected range", async () => {
+  renderPage("/insights?days=90");
+  expect(await screen.findByText("注册后还有多少人回来使用")).toBeInTheDocument();
+  expect(consoleApi.analytics).toHaveBeenCalledWith(90);
+  expect(mockedGetDashboard).not.toHaveBeenCalled();
+  expect(screen.getByRole("tab", { name: "用户使用情况" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+});
+
+it("explains statistics without funnel or retention jargon",async()=>{
+ renderPage("/?tab=growth");
+ expect(await screen.findByText("新用户注册后，有多少人开始聊天")).toBeInTheDocument();
+ expect(screen.getByText("注册后还有多少人回来使用")).toBeInTheDocument();
+ expect(screen.getByText("回来使用的比例")).toBeInTheDocument();
+ expect(screen.queryByText(/漏斗|留存|转化窗口/)).not.toBeInTheDocument();
 });
