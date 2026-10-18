@@ -8,7 +8,8 @@
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "sync:e2ee": "node scripts/sync-e2ee.mjs"
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.0",
@@ -17,7 +18,8 @@
     "antd": "^6.1.0",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
-    "react-router-dom": "^7.11.0"
+    "react-router-dom": "^7.11.0",
+    "@circle/e2ee": "file:vendor/e2ee"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",

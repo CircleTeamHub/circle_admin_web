@@ -4,6 +4,7 @@ export interface ImConversation {
   type: "DIRECT" | "GROUP";
   name: string | null;
   circleID: string | null;
+  circle?: { id: string; name: string } | null;
   memberCount: number;
   participants: { id: string; nickname: string }[];
   lastMessageAt: string | null;
