@@ -9,8 +9,8 @@ import { getErrorMessage } from "../utils/errors";
 export function LoginPage() {
   const navigate = useNavigate();
   const mutation = useMutation({
-    mutationFn: async (values: { email: string; password: string }) => {
-      const tokens = await login(values);
+    mutationFn: async (values: { identifier: string; password: string }) => {
+      const tokens = await login({...values,identifier:values.identifier.trim()});
       setSession(tokens);
       const me = await getMe();
       if (me.role !== "ADMIN" || me.status !== "ACTIVE") {
@@ -35,7 +35,7 @@ export function LoginPage() {
           />
         ) : null}
         <Form layout="vertical" onFinish={(values) => mutation.mutate(values)}>
-          <Form.Item name="email" label="邮箱" rules={[{ required: true, message: "请输入邮箱" }]}>
+          <Form.Item name="identifier" label="登录账号" rules={[{ required: true, whitespace: true, message: "请输入登录账号" }]}>
             <Input prefix={<UserOutlined />} autoComplete="username" />
           </Form.Item>
           <Form.Item name="password" label="密码" rules={[{ required: true, message: "请输入密码" }]}>

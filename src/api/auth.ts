@@ -2,7 +2,7 @@ import { apiClient } from "./client";
 import type { AuthUser } from "../types";
 
 export interface LoginPayload {
-  email: string;
+  identifier: string;
   password: string;
 }
 
@@ -21,4 +21,8 @@ export function login(payload: LoginPayload): Promise<AuthTokens> {
 
 export function getMe(): Promise<AuthUser> {
   return apiClient<AuthUser>("/auth/me");
+}
+
+export function updateAdminNickname(nickname: string): Promise<{id:string;nickname:string}> {
+  return apiClient('/admin/access/me/nickname',{method:'PATCH',retryOnUnauthorized:false,body:JSON.stringify({nickname})});
 }
