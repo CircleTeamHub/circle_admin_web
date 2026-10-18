@@ -14,6 +14,8 @@
 //
 // 与移动端 src/observability/route-segments.ts 同一决定。
 export const STATIC_ROUTE_SEGMENTS: ReadonlySet<string> = new Set([
+  "nickname",
+  "scrolling",
   "access",
   "actions",
   "admin",
