@@ -1,3 +1,4 @@
+import { displayLabel } from "../utils/display";
 import { Space, Tag, Typography } from "antd";
 import type { AdminUser } from "../types";
 
@@ -8,9 +9,15 @@ export function UserSummary({ user }: { user?: AdminUser | null }) {
     <Space direction="vertical" size={0}>
       <Space size={6}>
         <Typography.Text strong>{user.accountId}</Typography.Text>
-        {user.status ? <Tag>{user.status}</Tag> : null}
+        {user.status ? (
+          <Tag title={user.status}>
+            {displayLabel("userStatus", user.status)}
+          </Tag>
+        ) : null}
       </Space>
-      <Typography.Text type="secondary">{user.nickname || "未设置昵称"}</Typography.Text>
+      <Typography.Text type="secondary">
+        {user.nickname || "未设置昵称"}
+      </Typography.Text>
     </Space>
   );
 }

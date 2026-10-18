@@ -45,11 +45,7 @@ export interface AdminUserListItem {
 }
 
 export type SensitiveField =
-  | "email"
-  | "phoneNumber"
-  | "wechat"
-  | "qq"
-  | "whatsup";
+  "email" | "phoneNumber" | "wechat" | "qq" | "whatsup";
 
 export type MaskedContacts = Record<SensitiveField, string | null>;
 
@@ -74,6 +70,18 @@ export interface UserBusinessSummary {
 
 export interface AdminUserDetail {
   profile: {
+    persona?: string | null;
+    helloWords?: string | null;
+    birthday?: string | null;
+    cover?: string | null;
+    receivedLikeCount?: number;
+    displayIcons?: Array<{
+      id: string;
+      title: string;
+      imageUrl: string | null;
+      circleId?: string;
+      circleName?: string;
+    }>;
     id: string;
     accountId: string;
     nickname: string;
@@ -141,4 +149,3 @@ export interface FriendReport {
   reviewedAt?: string | null;
   reviewNote?: string | null;
 }
-

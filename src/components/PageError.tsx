@@ -1,5 +1,7 @@
-import { Alert, Button } from "antd";
-import { getErrorMessage } from "../utils/errors";
+import { ApiError } from "../api/client";
+import { Alert, Button, Space } from "antd";
+import { readableErrorMessage } from "../utils/error-display";
+import { Identifier } from "./ReadableValue";
 
 export function PageError({
   error,
@@ -15,7 +17,26 @@ export function PageError({
       type="error"
       showIcon
       message={message}
-      description={getErrorMessage(error)}
+      description={
+        <Space orientation="vertical">
+          <span>{readableErrorMessage(error)}</span>
+          {error instanceof ApiError && (
+            <>
+              <span>请求状态：HTTP {error.status}</span>
+              {error.requestId && (
+                <Identifier value={error.requestId} label="诊断编号" />
+              )}
+            </>
+          )}
+          {error instanceof ApiError && error.requestId && (
+            <a
+              href={`/diagnostics?requestID=${encodeURIComponent(error.requestId)}`}
+            >
+              查看问题排查
+            </a>
+          )}
+        </Space>
+      }
       action={
         onRetry ? (
           <Button size="small" danger onClick={onRetry}>

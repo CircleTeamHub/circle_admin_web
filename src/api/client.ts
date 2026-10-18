@@ -11,6 +11,7 @@ export class ApiError extends Error {
     message: string,
     public readonly status: number,
     public readonly payload?: unknown,
+    public readonly requestId?: string,
   ) {
     super(message);
     this.name = "ApiError";
@@ -60,7 +61,8 @@ async function parseResponse<T>(response: Response): Promise<T> {
         : typeof payload === "string" && payload.trim()
           ? payload
         : response.statusText;
-    throw new ApiError(message, response.status, payload);
+    const requestId=response.headers.get('x-request-id');
+    throw new ApiError(message, response.status, payload, requestId && /^[a-f0-9-]{36}$/i.test(requestId)?requestId:undefined);
   }
 
   if (
