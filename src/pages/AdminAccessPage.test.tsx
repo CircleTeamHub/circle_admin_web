@@ -16,10 +16,23 @@ function show(){render(<QueryClientProvider client={new QueryClient({defaultOpti
 it('edits nickname and account with the current role and optimistic version',async()=>{
  show();const row=(await screen.findByText('客服小张')).closest('tr')!;fireEvent.click(within(row).getByRole('button',{name:/编\s*辑/}));const dialog=within(screen.getByRole('dialog'));
  expect(dialog.getByLabelText('昵称')).toHaveValue('客服小张');expect(dialog.getByLabelText('登录账号')).toHaveValue('support_01');
- fireEvent.change(dialog.getByLabelText('昵称'),{target:{value:'客服小李'}});fireEvent.change(dialog.getByLabelText('登录账号'),{target:{value:'support_02'}});fireEvent.change(dialog.getByLabelText('修改原因'),{target:{value:'更新资料'}});await dialog.findByText('该账号可以使用');fireEvent.click(dialog.getByRole('button',{name:'OK'}));
+ fireEvent.change(dialog.getByLabelText('昵称'),{target:{value:'客服小李'}});fireEvent.change(dialog.getByLabelText('登录账号'),{target:{value:'support_02'}});fireEvent.change(dialog.getByLabelText('修改原因'),{target:{value:'更新资料'}});await dialog.findByText('该账号可以使用');await dialog.findByText('该账号可以使用');fireEvent.click(dialog.getByRole('button',{name:'OK'}));
  await screen.findAllByText('确认保存管理员资料');fireEvent.click(within(screen.getAllByRole('dialog').at(-1)!).getByRole('button',{name:'OK'}));
  await waitFor(()=>expect(platformWrite).toHaveBeenCalledWith('/admin/access/accounts/target','PATCH',{nickname:'客服小李',accountId:'support_02',role:'SUPPORT',reason:'更新资料',version:2}));
 });
 it('allows editing own nickname and account but disables own role and deletion',async()=>{
  show();await screen.findByText('客服小张');const row=screen.getByText('admin').closest('tr')!;expect(within(row).getByRole('button',{name:/删\s*除/})).toBeDisabled();fireEvent.click(within(row).getByRole('button',{name:/编\s*辑/}));const dialog=within(screen.getByRole('dialog'));expect(dialog.getByLabelText('角色')).toBeDisabled();expect(dialog.getByLabelText('昵称')).not.toBeDisabled();
+});
+it('reloads editable identity fields after a concurrent-update conflict',async()=>{
+ const {ApiError}=await import('../api/client');
+ vi.mocked(platformWrite).mockRejectedValueOnce(new ApiError('conflict',409));
+ show();const row=(await screen.findByText('客服小张')).closest('tr')!;fireEvent.click(within(row).getByRole('button',{name:/编\s*辑/}));let dialog=within(screen.getByRole('dialog'));
+ fireEvent.change(dialog.getByLabelText('修改原因'),{target:{value:'更新资料'}});
+ await dialog.findByText('该账号可以使用');fireEvent.click(dialog.getByRole('button',{name:'OK'}));
+ await screen.findAllByText('确认保存管理员资料');fireEvent.click(within(screen.getAllByRole('dialog').at(-1)!).getByRole('button',{name:'OK'}));
+ const refresh=await screen.findByRole('button',{name:'刷新管理员资料后重新确认'});
+ vi.mocked(platformList).mockResolvedValue({items:[own,{...other,nickname:'其他管理员修改',accountId:'support_new',version:3}],total:2,page:1,limit:20});
+ fireEvent.click(refresh);
+ await waitFor(()=>expect(screen.getByLabelText('昵称')).toHaveValue('其他管理员修改'));
+ expect(screen.getByLabelText('登录账号')).toHaveValue('support_new');
 });
