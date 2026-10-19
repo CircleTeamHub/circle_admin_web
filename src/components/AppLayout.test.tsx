@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it } from "vitest";
@@ -6,7 +7,7 @@ import { AppLayout } from "./AppLayout";
 
 function renderLayout(permissions: AdminPermission[]) {
   return render(
-    <AdminAccessContext.Provider
+    <QueryClientProvider client={new QueryClient()}><AdminAccessContext.Provider
       value={{ role: "OPERATIONS", permissions, version: 1 }}
     >
       <MemoryRouter initialEntries={["/"]}>
@@ -26,8 +27,8 @@ function renderLayout(permissions: AdminPermission[]) {
           >
             <Route index element={<div>Dashboard destination</div>} />
             <Route
-              path="fancy-numbers"
-              element={<div>Fancy numbers destination</div>}
+              path="memberships"
+              element={<div>Memberships destination</div>}
             />
             <Route
               path="recharge"
@@ -36,18 +37,26 @@ function renderLayout(permissions: AdminPermission[]) {
           </Route>
         </Routes>
       </MemoryRouter>
-    </AdminAccessContext.Provider>,
+    </AdminAccessContext.Provider></QueryClientProvider>,
   );
 }
 
 describe("AppLayout", () => {
-  it("routes authorized administrators to fancy numbers and recharge", async () => {
+  it("shows one identity label and keeps the account in its tooltip",()=>{
+    renderLayout(["DASHBOARD"]);
+    expect(screen.getByText("Admin")).toHaveAttribute("title","账号：admin");
+    expect(screen.queryByText("admin",{exact:true})).not.toBeInTheDocument();
+    expect(screen.getByText("本地开发")).toBeInTheDocument();
+    expect(screen.getByText("运营")).toBeInTheDocument();
+  });
+  it("routes authorized administrators to memberships and recharge without retired fancy-number entries", async () => {
     renderLayout(["COMMERCE_MANAGE", "RECHARGE_MANAGE"]);
 
-    fireEvent.click(screen.getByRole("menuitem", { name: /热门靓号/ }));
+    expect(screen.queryByRole("menuitem", { name: /靓号/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("menuitem", { name: /VIP 管理/ }));
 
     expect(
-      await screen.findByText("Fancy numbers destination"),
+      await screen.findByText("Memberships destination"),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("menuitem", { name: /充值审核/ }));

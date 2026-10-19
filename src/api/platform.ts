@@ -66,21 +66,6 @@ export interface CampaignUpdate {
   expiresAt: string;
   reason: string;
 }
-export interface AdvertisementInput {
-  title: string;
-  imageUrl: string;
-  targetUrl: string;
-  placement: "CIRCLE_HOME";
-  sortOrder: number;
-  enabled: boolean;
-  startsAt: string;
-  endsAt: string;
-  reason: string;
-}
-export interface Advertisement extends Omit<AdvertisementInput, "reason"> {
-  id: string;
-  version: number;
-}
 export type ConsoleRole =
   | "SUPER_ADMIN"
   | "OPERATIONS"

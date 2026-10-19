@@ -1,3 +1,4 @@
+import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -45,7 +46,9 @@ function renderPage() {
   });
   const view = render(
     <QueryClientProvider client={client}>
-      <CommunityPage />
+      <MemoryRouter>
+        <CommunityPage />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
   return { client, ...view };
@@ -108,36 +111,33 @@ describe("CommunityPage", () => {
     mockedGroupOperation.mockResolvedValue({} as never);
   });
 
-  it(
-    "submits a confirmed circle disable operation",
-    async () => {
-      renderPage();
+  it("submits a confirmed circle disable operation", async () => {
+    renderPage();
 
-      fireEvent.click(
-        await screen.findByRole(
-          "button",
-          { name: "停用 摄影圈" },
-          { timeout: 10_000 },
-        ),
-      );
-      fireEvent.change(screen.getByLabelText("操作原因"), {
-        target: { value: "存在违规内容" },
-      });
-      fireEvent.change(screen.getByLabelText("确认文字"), {
-        target: { value: "摄影圈" },
-      });
-      fireEvent.click(screen.getByRole("button", { name: "确认提交" }));
+    fireEvent.click(
+      await screen.findByRole(
+        "button",
+        { name: "停用 摄影圈" },
+        { timeout: 10_000 },
+      ),
+    );
+    fireEvent.change(screen.getByLabelText("操作原因"), {
+      target: { value: "存在违规内容" },
+    });
+    fireEvent.change(screen.getByLabelText("确认文字"), {
+      target: { value: "摄影圈" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "确认提交" }));
 
-      await waitFor(() =>
-        expect(mockedDisable).toHaveBeenCalledWith(
-          "circle-1",
-          "存在违规内容",
-          "摄影圈",
-          expect.any(String),
-        ),
-      );
-    },
-  );
+    await waitFor(() =>
+      expect(mockedDisable).toHaveBeenCalledWith(
+        "circle-1",
+        "存在违规内容",
+        "摄影圈",
+        expect.any(String),
+      ),
+    );
+  });
 
   it("reuses the idempotency key when a failed action is retried", async () => {
     mockedDisable
@@ -263,9 +263,7 @@ describe("CommunityPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "确认提交" }));
 
     await waitFor(() => expect(mockedListCircles).toHaveBeenCalledTimes(2));
-    expect(
-      screen.getByRole("button", { name: "停用 摄影圈" }),
-    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: "停用 摄影圈" })).toBeDisabled();
     refetch.resolve({
       items: [],
       total: 0,
@@ -298,9 +296,7 @@ describe("CommunityPage", () => {
 
   it("disables an open confirmation after polling changes the circle state", async () => {
     const { client } = renderPage();
-    fireEvent.click(
-      await screen.findByRole("button", { name: "停用 摄影圈" }),
-    );
+    fireEvent.click(await screen.findByRole("button", { name: "停用 摄影圈" }));
     fireEvent.change(screen.getByLabelText("操作原因"), {
       target: { value: "存在违规内容" },
     });
@@ -314,25 +310,23 @@ describe("CommunityPage", () => {
         queryKey,
       )!;
     client.setQueryData(queryKey, {
-        items: [
-          {
-            ...current.items[0],
-            deleted: true,
-            adminState: "DISABLED",
-            adminDisabledAt: "2026-07-30T00:00:00.000Z",
-            adminDisabledBy: "admin-2",
-            adminDisableReason: "其他管理员已停用",
-          },
-        ],
-        total: 1,
-        page: 1,
-        limit: 20,
-      });
+      items: [
+        {
+          ...current.items[0],
+          deleted: true,
+          adminState: "DISABLED",
+          adminDisabledAt: "2026-07-30T00:00:00.000Z",
+          adminDisabledBy: "admin-2",
+          adminDisableReason: "其他管理员已停用",
+        },
+      ],
+      total: 1,
+      page: 1,
+      limit: 20,
+    });
 
     await waitFor(() =>
-      expect(
-        screen.getByRole("button", { name: "确认提交" }),
-      ).toBeDisabled(),
+      expect(screen.getByRole("button", { name: "确认提交" })).toBeDisabled(),
     );
     expect(
       screen.getByText("目标状态已变化，请关闭窗口后按最新状态重新操作"),
@@ -416,33 +410,30 @@ describe("CommunityPage", () => {
     );
   });
 
-  it(
-    "can permanently dismiss a standalone OpenIM group",
-    async () => {
-      renderPage();
-      fireEvent.click(await screen.findByText("全部群聊"));
-      fireEvent.click(
-        await screen.findByRole("button", { name: "解散 周末徒步" }),
-      );
-      fireEvent.change(screen.getByLabelText("操作原因"), {
-        target: { value: "诈骗群聊" },
-      });
-      fireEvent.change(screen.getByLabelText("确认文字"), {
-        target: { value: "group-2" },
-      });
-      fireEvent.click(screen.getByRole("button", { name: "确认提交" }));
+  it("can permanently dismiss a standalone OpenIM group", async () => {
+    renderPage();
+    fireEvent.click(await screen.findByText("全部群聊"));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "解散 周末徒步" }),
+    );
+    fireEvent.change(screen.getByLabelText("操作原因"), {
+      target: { value: "诈骗群聊" },
+    });
+    fireEvent.change(screen.getByLabelText("确认文字"), {
+      target: { value: "group-2" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "确认提交" }));
 
-      await waitFor(() =>
-        expect(mockedGroupOperation).toHaveBeenCalledWith(
-          "group-2",
-          "DISMISS",
-          "诈骗群聊",
-          "group-2",
-          expect.any(String),
-        ),
-      );
-    },
-  );
+    await waitFor(() =>
+      expect(mockedGroupOperation).toHaveBeenCalledWith(
+        "group-2",
+        "DISMISS",
+        "诈骗群聊",
+        "group-2",
+        expect.any(String),
+      ),
+    );
+  });
 
   it("marks dismissed OpenIM groups unavailable and disables their actions", async () => {
     mockedListGroups.mockResolvedValue({
@@ -512,9 +503,7 @@ describe("CommunityPage", () => {
 
     renderPage();
 
-    expect(
-      await screen.findByText("群聊已永久解散"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("群聊已永久解散")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "不可恢复" })).toBeDisabled();
     expect(
       screen.queryByRole("button", { name: "恢复 已解散圈子" }),
@@ -557,4 +546,41 @@ describe("CommunityPage", () => {
       screen.queryByRole("button", { name: "恢复 历史删除圈子" }),
     ).not.toBeInTheDocument();
   });
+});
+
+it("shows actual groups rather than legacy IDs and keeps internal IDs in details", async () => {
+  const id = "12345678-1234-5678-90ab-abcdef123456",
+    chat = "87654321-1234-5678-90ab-abcdef123456";
+  mockedListCircles.mockResolvedValue({
+    items: [
+      {
+        id,
+        name: "真实圈子",
+        groupID: null,
+        memberCount: 2,
+        postCount: 0,
+        deleted: false,
+        adminState: "ACTIVE",
+        adminDisabledAt: null,
+        adminDisabledBy: null,
+        adminDisableReason: null,
+        createdAt: "2026-10-17",
+        owner: { id: "owner", accountId: "owner", nickname: "圈主" },
+        latestOperation: null,
+        associatedGroup: { id: chat, circleID: id, name: "真正的群聊" },
+      },
+    ],
+    total: 1,
+    page: 1,
+    limit: 20,
+  });
+  renderPage();
+  expect(await screen.findByText("群聊：真正的群聊")).toBeInTheDocument();
+  expect(screen.queryByText(/未关联旧聊天群/)).toBeNull();
+  expect(screen.queryByText(id)).toBeNull();
+  expect(screen.queryByText(chat)).toBeNull();
+  expect(screen.getByRole("link", { name: "真实圈子" })).toHaveAttribute(
+    "href",
+    `/community/circles/${id}`,
+  );
 });

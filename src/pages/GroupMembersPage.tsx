@@ -1,3 +1,5 @@
+import { useAdminAccess } from "../auth/admin-access";
+import { Identifier, CodeValue } from "../components/ReadableValue";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   Alert,
@@ -20,6 +22,7 @@ import {
 } from "../api/admin-im";
 
 export function GroupMembersPage() {
+  const { hasPermission } = useAdminAccess();
   const { conversationId = "" } = useParams();
   const [keyword, setKeyword] = useState("");
   const [page, setPage] = useState(1);
@@ -65,13 +68,18 @@ export function GroupMembersPage() {
     <Space direction="vertical" style={{ width: "100%" }}>
       <Link to="/im">返回会话管理</Link>
       <Typography.Title level={3}>
-        群成员 · {members.data?.name ?? conversationId}
+        群成员 · {members.data?.name || "未命名群聊"}
       </Typography.Title>
       <Typography.Text>
         圈子关联：
-        {members.data?.circle
-          ? `${members.data.circle.name} (${members.data.circle.id})`
-          : "独立群"}
+        {members.data?.circle ? (
+          <Space>
+            {members.data.circle.name}
+            <Identifier value={members.data.circle.id} />
+          </Space>
+        ) : (
+          "独立群"
+        )}
       </Typography.Text>
       <Space>
         <Input.Search
@@ -108,13 +116,25 @@ export function GroupMembersPage() {
             title: "成员",
             render: (_, m) => (
               <span>
-                {m.nickname}
+                {hasPermission("USER_READ") ? (
+                  <Link to={`/users/${encodeURIComponent(m.id)}`}>
+                    {m.nickname}
+                  </Link>
+                ) : (
+                  m.nickname
+                )}
                 <br />
-                {m.id}
+                <Identifier value={m.id} />
               </span>
             ),
           },
-          { title: "角色", dataIndex: "role" },
+          {
+            title: "角色",
+            dataIndex: "role",
+            render: (value: string | null) => (
+              <CodeValue domain="memberRole" value={value} />
+            ),
+          },
           {
             title: "禁言",
             render: (_, m) =>

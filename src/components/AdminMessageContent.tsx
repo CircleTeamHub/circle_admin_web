@@ -1,3 +1,4 @@
+import { CodeValue } from "./ReadableValue";
 import { Button, Image, Space, Typography } from "antd";
 import { useState } from "react";
 import type { ImMessage } from "../api/admin-im";
@@ -127,7 +128,7 @@ export function AdminMessageContent({
     );
   return (
     <Typography.Text type="secondary">
-      {message.type} · 无可显示内容或媒体不可用
+      <CodeValue domain="messageType" value={message.type}/> · 内容暂时无法展示或附件已不可用
     </Typography.Text>
   );
 }

@@ -233,7 +233,8 @@ describe("normalizePath", () => {
     // 路由模板里的参数名也不该原样出现。
     expect(normalizePath("users/:userId")).toBe("users/:id");
     // 不在路由表里的词一律按标识符处理，哪怕它长得像静态段。
-    expect(normalizePath("/admin/users/42/notes")).toBe("/admin/users/:id/:id");
+    expect(normalizePath("/admin/users/42/future-panel")).toBe("/admin/users/:id/:id");
+    expect(normalizePath("/admin/users/42/notes/opaque-note-id")).toBe("/admin/users/:id/notes/:id");
   });
 
   it("reduces absolute URLs to their route shape", () => {

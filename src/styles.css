@@ -14,6 +14,10 @@ body {
 }
 
 .app-sider {
+  position: sticky !important;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
   border-right: 1px solid #e5e7eb;
 }
 
@@ -49,19 +53,6 @@ body {
 
 .page-title-row .ant-typography {
   margin-bottom: 0;
-}
-
-.fancy-number-recommendation-row {
-  cursor: grab;
-}
-
-.fancy-number-recommendation-row:active {
-  cursor: grabbing;
-}
-
-.fancy-number-value {
-  font-size: 17px;
-  letter-spacing: 1px;
 }
 
 .dashboard-trend {
@@ -110,4 +101,31 @@ body {
 
 .login-card {
   width: min(420px, calc(100vw - 32px));
+}
+
+/* Keep short column headings legible; identifiers wrap inside ReadableValue. */
+.ant-table-wrapper .ant-table-thead > tr > th {
+  white-space: nowrap;
+}
+
+/* Reserve space for row actions; narrow viewports scroll within the table. */
+.content-post-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+.content-post-actions .ant-btn {
+  flex-shrink: 0;
+}
+
+.content-post-actions-divider {
+  width: 1px;
+  height: 14px;
+  background: #e5e7eb;
+}
+
+.content-posts-table .ant-table-cell-fix-right {
+  box-shadow: -6px 0 10px -10px #64748b;
 }

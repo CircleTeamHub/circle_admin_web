@@ -1,0 +1,19 @@
+{
+  "source": "circle-im/packages/e2ee",
+  "hashes": {
+    "archive-store.d.mts": "4178e2a8f44a4b2db4f687d74440e738cb938f4eda4e729d2d8bb7222f8d9ffd",
+    "archive-store.mjs": "2c0421be11b852f77c7b45b9d1794d26ee7afdeb1cff236fe271e11a0cb72692",
+    "browser-journal.d.mts": "fac15dd1eea12d243944eaaae1b0f5a7d67b18fa27b90e9501822e7fa4aa6408",
+    "browser-journal.mjs": "fa812ec2dc490f43ca66a590b5cf77359c905f9cef63b89e7927f5c1977d41af",
+    "index.d.ts": "e4ceae865e109c113a47e3673ef4b445b56cc6aeea6db0d620f4d9a004f506ca",
+    "journal-codec.d.mts": "86fe5bc2fd2d46edce31ea39169e8431020ceb55331f63f21d68abe2b5b842e0",
+    "journal-codec.mjs": "1f3d72f96c1594661496a2631cf545b93ce44f45fe3beea5684f8d2d2f00cd9d",
+    "package.json": "04042fc71743d1dd15e27a0fc85b87e7d333d6f055f0f3cc56d57005a7748d8f",
+    "portable-provider.mjs": "92fac17edfb1421e6f66a8ce35fc6e20612f2b20ef19d269766e25e7bdd3456d",
+    "protocol.mjs": "cc4e0cf9dfb5524cb25ce626d66f0d4c0739d86eb0735f21f65f9bbd5f988c8f",
+    "recovery.d.mts": "c5e9f3857a0d98c4ca9ad54ddb35e0928cba82ee725dfe961696b59d15be3fbc",
+    "recovery.mjs": "64398d770dc07fc07ecd1d74caa6cd1fe8e3bdf78d3bd4ab5ae153228f63640d",
+    "relay-client.d.mts": "4cea8dd884b21f473d021b1e09c1c81907bff9b02297601d6e3c3206099ad6c4",
+    "relay-client.mjs": "59d0f6d86caee7a9a68c8c219b27a3a1e13c394c41f0f026e4f0a186fe884550"
+  }
+}

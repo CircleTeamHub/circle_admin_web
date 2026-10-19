@@ -27,7 +27,7 @@ describe('auth api', () => {
     globalThis.fetch = fetchMock;
 
     await expect(
-      login({ email: 'admin@example.com', password: 'password1' }),
+      login({ identifier: 'support_01', password: 'password1' }),
     ).resolves.toEqual({
       accessToken: 'access-token',
       refreshToken: 'refresh-token',
@@ -38,7 +38,7 @@ describe('auth api', () => {
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({
-          email: 'admin@example.com',
+          identifier: 'support_01',
           password: 'password1',
         }),
       }),

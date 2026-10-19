@@ -1,3 +1,4 @@
+import { displayLabel } from "../utils/display";
 import { useQuery } from "@tanstack/react-query";
 import { Button, Card, Descriptions, Space, Tag, Typography } from "antd";
 import { getDashboard } from "../api/dashboard";
@@ -12,10 +13,10 @@ export function SystemStatusPage() {
   const system = query.data?.sections.system;
   const data = system?.status === "ok" ? system.data : null;
   const links = [
-    ["Grafana", import.meta.env.VITE_GRAFANA_URL],
-    ["Sentry", import.meta.env.VITE_SENTRY_URL],
-    ["Uptime Kuma", import.meta.env.VITE_UPTIME_KUMA_URL],
-    ["Alertmanager", import.meta.env.VITE_ALERTMANAGER_URL],
+    ["监控看板（Grafana）", import.meta.env.VITE_GRAFANA_URL],
+    ["错误追踪（Sentry）", import.meta.env.VITE_SENTRY_URL],
+    ["可用性监控（Uptime Kuma）", import.meta.env.VITE_UPTIME_KUMA_URL],
+    ["告警管理（Alertmanager）", import.meta.env.VITE_ALERTMANAGER_URL],
   ].filter(([, url]) => !!url);
   return (
     <Space orientation="vertical" size={16} className="page-stack">
@@ -52,14 +53,22 @@ export function SystemStatusPage() {
                   label:
                     (
                       {
-                        api: "API",
+                        api: "接口服务",
                         database: "数据库",
-                        redis: "Redis",
+                        redis: "缓存服务",
                       } as Record<string, string>
                     )[key] ?? key,
                   children: (
-                    <Tag color={value === "healthy" ? "green" : "red"}>
-                      {value === "healthy" ? "正常" : "异常"}
+                    <Tag
+                      color={
+                        value === "healthy"
+                          ? "green"
+                          : value === "down"
+                            ? "red"
+                            : "default"
+                      }
+                    >
+                      {displayLabel("health", value)}
                     </Tag>
                   ),
                 }))

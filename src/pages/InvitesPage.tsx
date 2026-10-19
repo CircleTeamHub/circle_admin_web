@@ -1,3 +1,4 @@
+import { CodeValue } from "../components/ReadableValue";
 import { useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -283,7 +284,13 @@ export function InvitesPage() {
           columns={[
             { title: "邀请人", render: (_, r) => personLabel(r.inviter) },
             { title: "被邀请人", render: (_, r) => personLabel(r.invitee) },
-            { title: "状态", dataIndex: "status" },
+            {
+              title: "状态",
+              dataIndex: "status",
+              render: (value: string | null) => (
+                <CodeValue domain="referralStatus" value={value} />
+              ),
+            },
             {
               title: "奖励",
               render: (_, r) =>
@@ -299,7 +306,13 @@ export function InvitesPage() {
               dataIndex: "rewardedAt",
               render: formatDateTime,
             },
-            { title: "失败原因", dataIndex: "failureReason" },
+            {
+              title: "失败原因",
+              dataIndex: "failureReason",
+              render: (value: string | null) => (
+                <CodeValue domain="error" value={value} />
+              ),
+            },
           ]}
         />
       )}

@@ -27,7 +27,7 @@ export interface ContentPost {
   updatedAt: string;
   author: AdminUser;
   circle: { id: string; name: string };
-  reportCount: number;
+  signupCount: number;
 }
 export function listReports(
   kind: ReportKind,
@@ -98,11 +98,30 @@ export function mutateWords(
 export function publishAnnouncement(
   content: string,
   key: string,
+  title?: string,
+  scrolling = false,
 ): Promise<{ createdCount: number }> {
   return apiClient("/admin/system-announcements", {
     method: "POST",
     retryOnUnauthorized: false,
     headers: { "Idempotency-Key": key },
-    body: JSON.stringify({ content }),
+    body: JSON.stringify({ title, content, scrolling }),
   });
+}
+
+export interface AdminAnnouncement {
+  id: string; title: string | null; content: string; scrolling: boolean; createdAt: string; fanoutCompletedAt: string | null;
+}
+export function listAnnouncements(): Promise<{ items: AdminAnnouncement[] }> {
+  return apiClient('/admin/system-announcements');
+}
+export function setAnnouncementScrolling(id: string, scrolling: boolean) {
+  return apiClient(`/admin/system-announcements/${encodeURIComponent(id)}/scrolling`, { method: 'PATCH', retryOnUnauthorized: false, body: JSON.stringify({scrolling}) });
+}
+
+export function editAnnouncement(id: string, values: { title: string; content: string }) {
+  return apiClient(`/admin/system-announcements/${encodeURIComponent(id)}`, {method:'PATCH',retryOnUnauthorized:false,body:JSON.stringify(values)});
+}
+export function deleteAnnouncement(id: string) {
+  return apiClient(`/admin/system-announcements/${encodeURIComponent(id)}`, {method:'DELETE',retryOnUnauthorized:false});
 }

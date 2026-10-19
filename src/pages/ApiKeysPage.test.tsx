@@ -1,0 +1,24 @@
+import {StrictMode} from 'react';
+import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
+import {fireEvent,render,screen,waitFor} from '@testing-library/react';
+import {MemoryRouter} from 'react-router-dom';
+import {expect,it,vi} from 'vitest';
+import {ApiKeysPage} from './ApiKeysPage';
+import {consoleApi} from '../api/console';
+vi.mock('../api/console',async original=>({...await original<typeof import('../api/console')>(),consoleApi:{keys:vi.fn(),createKey:vi.fn()}}));
+it('shows a secret once and never retains it in query or mutation result caches',async()=>{
+  const secret='cak_'+'a'.repeat(43);
+  vi.mocked(consoleApi.keys).mockResolvedValue({items:[]});
+  vi.mocked(consoleApi.createKey).mockResolvedValue({id:'key',name:'local key',prefix:'cak_aaaa',scopes:['tasks'],expiresAt:'2099-01-01',revokedAt:null,lastUsedAt:null,createdAt:'2026-10-17',secret});
+  const client=new QueryClient({defaultOptions:{queries:{retry:false},mutations:{retry:false}}});
+  render(<StrictMode><QueryClientProvider client={client}><MemoryRouter><ApiKeysPage/></MemoryRouter></QueryClientProvider></StrictMode>);
+  fireEvent.click(screen.getByText('创建只读密钥'));
+  fireEvent.change(screen.getByLabelText('名称'),{target:{value:'local key'}});
+  fireEvent.change(screen.getByLabelText('创建原因'),{target:{value:'本地验收'}});
+  fireEvent.click(screen.getByRole('button',{name:/OK|确.*定/}));
+  expect(await screen.findByLabelText('新密钥')).toHaveValue(secret);
+  expect(JSON.stringify(client.getMutationCache().getAll().map(m=>m.state.data))).not.toContain(secret);
+  expect(JSON.stringify(client.getQueryCache().getAll().map(q=>q.state.data))).not.toContain(secret);
+  fireEvent.click(screen.getByText('已保存并关闭'));
+  await waitFor(()=>expect(screen.queryByLabelText('新密钥')).not.toBeVisible());
+});

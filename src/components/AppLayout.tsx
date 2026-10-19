@@ -1,3 +1,6 @@
+import { AdminNicknameEditor } from "./AdminNicknameEditor";
+import { displayLabel } from "../utils/display";
+import { useEffect } from "react";
 import {
   DashboardOutlined,
   CommentOutlined,
@@ -20,12 +23,22 @@ const { Header, Sider, Content } = Layout;
 export function AppLayout({ user }: { user: AuthUser }) {
   const navigate = useNavigate();
   const location = useLocation();
+  useEffect(() => {
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, [location.pathname]);
   const env = import.meta.env.VITE_APP_ENV || "development";
   const { access, hasPermission } = useAdminAccess();
 
   return (
     <Layout className="app-shell">
-      <Sider width={216} theme="light" className="app-sider">
+      <Sider
+        breakpoint="lg"
+        collapsedWidth={64}
+        width={216}
+        theme="light"
+        className="app-sider"
+      >
         <div className="brand">Circle Admin</div>
         <Menu
           mode="inline"
@@ -49,7 +62,7 @@ export function AppLayout({ user }: { user: AuthUser }) {
                 <TeamOutlined />
               ) : item.key === "/im" || item.key === "/community" ? (
                 <CommentOutlined />
-              ) : item.key.includes("fancy") || item.key === "/memberships" ? (
+              ) : item.key === "/memberships" ? (
                 <StarOutlined />
               ) : item.key.includes("support") || item.key === "/recharge" ? (
                 <CustomerServiceOutlined />
@@ -64,7 +77,9 @@ export function AppLayout({ user }: { user: AuthUser }) {
       <Layout>
         <Header className="app-header">
           <Space>
-            <Tag color={env === "production" ? "red" : "blue"}>{env}</Tag>
+            <Tag color={env === "production" ? "red" : "blue"} title={env}>
+              {displayLabel("environment", env)}
+            </Tag>
             <Tag>
               {(
                 {
@@ -75,8 +90,10 @@ export function AppLayout({ user }: { user: AuthUser }) {
                 } as Record<string, string>
               )[access?.role ?? ""] ?? "未分配权限"}
             </Tag>
-            <Typography.Text>{user.nickname || user.accountId}</Typography.Text>
-            <Typography.Text type="secondary">{user.accountId}</Typography.Text>
+            <Typography.Text title={`账号：${user.accountId}`}>
+              {user.nickname || user.accountId}
+            </Typography.Text>
+            <AdminNicknameEditor user={user} />
             <Button
               icon={<LogoutOutlined />}
               onClick={() => {

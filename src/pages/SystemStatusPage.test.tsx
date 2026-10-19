@@ -20,7 +20,9 @@ const dashboard: AdminDashboard = {
     moderation: { status: "error", data: null },
     system: {
       status: "ok",
-      data: { services: { api: "healthy", database: "down", redis: "healthy" } },
+      data: {
+        services: { api: "healthy", database: "down", redis: "healthy" },
+      },
     },
   },
 };
@@ -45,11 +47,11 @@ describe("SystemStatusPage", () => {
   it("reports the actual service probes without the retired outbox queue panels", async () => {
     renderPage();
 
-    await screen.findByText("API");
+    await screen.findByText("接口服务");
     for (const [service, status] of [
-      ["API", "正常"],
+      ["接口服务", "正常"],
       ["数据库", "异常"],
-      ["Redis", "正常"],
+      ["缓存服务", "正常"],
     ]) {
       const item = screen.getByText(service).closest(".ant-descriptions-item");
       expect(item).not.toBeNull();
@@ -73,7 +75,7 @@ describe("SystemStatusPage", () => {
     mockedGetDashboard.mockResolvedValue(dashboard);
     fireEvent.click(screen.getByRole("button", { name: "重 试" }));
 
-    expect(await screen.findByText("API")).toBeInTheDocument();
+    expect(await screen.findByText("接口服务")).toBeInTheDocument();
     expect(screen.queryByText("系统状态加载失败")).not.toBeInTheDocument();
     expect(mockedGetDashboard).toHaveBeenCalledTimes(2);
   });
@@ -81,12 +83,17 @@ describe("SystemStatusPage", () => {
   it("reports an unavailable system section without inventing service health", async () => {
     mockedGetDashboard.mockResolvedValue({
       ...dashboard,
-      sections: { ...dashboard.sections, system: { status: "error", data: null } },
+      sections: {
+        ...dashboard.sections,
+        system: { status: "error", data: null },
+      },
     });
 
     renderPage();
 
-    expect(await screen.findByText("系统指标暂时不可用，请刷新重试。")).toBeInTheDocument();
+    expect(
+      await screen.findByText("系统指标暂时不可用，请刷新重试。"),
+    ).toBeInTheDocument();
     expect(screen.queryByText("正常")).not.toBeInTheDocument();
     expect(screen.queryByText("异常")).not.toBeInTheDocument();
   });
