@@ -77,7 +77,7 @@ export function AuditLogsPage() {
         limit: 20,
       }),
   });
-  const actionOptions = Object.entries(AUDIT_ACTION_LABEL).map(([value, label]) => ({ value, label }));
+  const actionOptions = Object.entries(AUDIT_ACTION_LABEL).map(([value, label]) => ({ value, label: Object.values(AUDIT_ACTION_LABEL).filter((text) => text === label).length > 1 ? `${label}（${value}）` : label }));
   if (search.get("action") && !AUDIT_ACTION_LABEL[search.get("action")!]) {
     actionOptions.push({ value: search.get("action")!, label: `其他操作（${search.get("action")}）` });
   }
