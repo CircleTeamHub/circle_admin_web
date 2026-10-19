@@ -86,3 +86,14 @@ it("rejects reversed dates before issuing a query", async () => {
   expect(await screen.findByText("结束时间不能早于开始时间")).toBeVisible();
   expect(platformList).not.toHaveBeenCalled();
 });
+
+it.each(["IM_MEMBER_ROLE", "GROUP_MEMBER_ROLE_UPDATED"])("distinguishes duplicate audit labels and submits %s", async (code) => {
+  renderAuditPage();
+  await screen.findByText("没有符合条件的操作记录，请调整筛选条件。");
+  const action = screen.getByRole("combobox", { name: "操作类型" });
+  fireEvent.mouseDown(action);
+  fireEvent.change(action, { target: { value: "调整群成员角色" } });
+  fireEvent.click(await screen.findByText(`调整群成员角色（${code}）`));
+  fireEvent.click(screen.getByRole("button", { name: /查\s*询/ }));
+  await waitFor(() => expect(platformList).toHaveBeenLastCalledWith("/admin/operations/audit-logs", expect.objectContaining({ action: code })));
+});
