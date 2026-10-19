@@ -1,3 +1,4 @@
+import {AdminAccessContext} from "../auth/admin-access";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, useLocation } from "react-router-dom";
@@ -92,9 +93,9 @@ it("drops stale cursors on filters and preserves a cursor only for explicit pagi
 it("provides a copyable diagnostic ID and a matching investigation link", () => {
   const id = "11111111-1111-4111-8111-111111111111";
   renderPage(
-    <PageError
+    <AdminAccessContext.Provider value={{role:"SUPER_ADMIN",version:1,permissions:["AUDIT_READ"]}}><PageError
       error={new ApiError("Request unavailable", 503, undefined, id)}
-    />,
+    /></AdminAccessContext.Provider>,
   );
   fireEvent.click(screen.getByRole("button", {name:"诊断编号详情"}));
   expect(screen.getByTitle(id)).toBeTruthy();
