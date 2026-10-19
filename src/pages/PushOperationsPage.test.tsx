@@ -152,11 +152,22 @@ it("clears the targeted task and all filters from the toolbar", async () => {
 
 it("preserves the failed-delivery retry action with an explicit reason", async () => {
   vi.mocked(consoleApi.pushes).mockResolvedValue({ items: [{
-    id: "failed-push", status: "FAILED", attempts: 2, lastError: "NETWORK_ERROR", nextAttemptAt: null,
+    id: "failed-push", status: "FAILED", retryable: true, attempts: 2, lastError: "NETWORK_ERROR", nextAttemptAt: null,
     createdAt: "2026-10-17", updatedAt: "2026-10-18", notification: { toUserID: null, type: "SYSTEM" }, deliveries: [],
   }], nextCursor: null });
   showTarget("failed-push");
   fireEvent.click(await screen.findByRole("button", { name: "重试失败设备" }));
   await waitFor(() => expect(screen.getByRole("dialog")).toBeVisible());
+  expect(consoleWrite).not.toHaveBeenCalled();
+});
+
+it("does not offer retries for failures the backend marks ineligible", async () => {
+  vi.mocked(consoleApi.pushes).mockResolvedValue({ items: [{
+    id: "ineligible-push", status: "FAILED", retryable: false, attempts: 2, lastError: "NETWORK_ERROR", nextAttemptAt: null,
+    createdAt: "2026-10-17", updatedAt: "2026-10-18", notification: { toUserID: null, type: "SYSTEM" }, deliveries: [],
+  }], nextCursor: null });
+  showTarget("ineligible-push");
+  await screen.findByRole("button", { name: "收起详情" });
+  expect(screen.queryByRole("button", { name: "重试失败设备" })).not.toBeInTheDocument();
   expect(consoleWrite).not.toHaveBeenCalled();
 });
