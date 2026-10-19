@@ -394,11 +394,11 @@ function ImPageContent() {
             render: (_, r) =>
               r.circleID ? (
                 <Space orientation="vertical" size={2}>
-                  <Link
+                  {hasPermission("COMMUNITY_MANAGE") ? <Link
                     to={`/community/circles/${encodeURIComponent(r.circleID)}`}
                   >
                     {r.circle?.name || "查看圈子详情"}
-                  </Link>
+                  </Link> : <span>{r.circle?.name || "关联圈子"}</span>}
                 </Space>
               ) : (
                 "独立会话"

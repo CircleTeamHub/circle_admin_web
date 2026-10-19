@@ -67,7 +67,7 @@ export function AnnouncementsPage() {
           const pending = readPending(storageKey);
           if (
             pending?.key === variables.key &&
-            pending.digest === variables.digest
+            (pending.digest === variables.digest || storageKey === PENDING_KEY)
           )
             sessionStorage.removeItem(storageKey);
         }
@@ -159,17 +159,18 @@ export function AnnouncementsPage() {
             ) as { sub?: string };
             if (typeof payload.sub !== "string" || !payload.sub)
               throw new Error("无法确认发布账号，请重新登录");
-            const [actorDigest, digest] = await Promise.all([
+            const [actorDigest, digest, legacyDigest] = await Promise.all([
               contentDigest(
                 JSON.stringify(["announcement-actor", payload.sub]),
               ),
               contentDigest(JSON.stringify([payload.sub, preview.title, preview.content, preview.scrolling])),
+              contentDigest(JSON.stringify([payload.sub, preview.content])),
             ]);
             if (getSessionEpoch() !== sessionEpoch)
               throw new Error("登录状态已变更，请重试");
             const storageKey = `${PENDING_KEY}:${actorDigest}`;
             const pending = readPending(storageKey);
-            if (pending && pending.digest !== digest) {
+            if (pending && pending.digest !== digest && pending.digest !== legacyDigest) {
               message.error("还有待确认的公告，请输入上次完全相同的标题、正文和播报选项重试");
               return;
             }
@@ -177,7 +178,7 @@ export function AnnouncementsPage() {
             // Another actor's mismatching digest must not block their own attempt.
             const legacy = readPending(PENDING_KEY);
             const matchingLegacy =
-              legacy?.digest === digest ? legacy : undefined;
+              legacy?.digest === digest || legacy?.digest === legacyDigest ? legacy : undefined;
             if (pending && matchingLegacy && pending.key !== matchingLegacy.key)
               throw new Error(
                 "存在多个待确认发布标识，请联系管理员核对发布结果",

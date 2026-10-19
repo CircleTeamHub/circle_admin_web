@@ -206,6 +206,8 @@ export function AdminAccessPage() {
               const row = result.data?.items.find((r) => r.id === selected?.id);
               if (row) {
                 setSelected(row);
+                form.resetFields();
+                form.setFieldsValue({ nickname: row.nickname, accountId: row.accountId, role: row.consoleRole || undefined });
                 setConflict(false);
                 setError(undefined);
               }

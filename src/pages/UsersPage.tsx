@@ -79,7 +79,7 @@ export function UsersPage() {
     status: ["ACTIVE", "BANNED", "DELETED"].includes(search.get("status") ?? "")
       ? (search.get("status") as UserStatus)
       : undefined,
-    role: ["USER", "ADMIN"].includes(search.get("role") ?? "")
+    role: ["USER", "MEMBER", "ADMIN"].includes(search.get("role") ?? "")
       ? (search.get("role") as UserRole)
       : undefined,
     createdFrom: search.get("createdFrom") ?? undefined,

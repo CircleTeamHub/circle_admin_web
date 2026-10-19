@@ -203,7 +203,7 @@ export function ReleasesPage() {
                           payload={{}}
                           danger
                           confirmText={r.version}
-                          onDone={() => void decision.refetch()}
+                          onDone={() => { if (preview) void decision.refetch(); }}
                         />
                       ) : null,
                   },
