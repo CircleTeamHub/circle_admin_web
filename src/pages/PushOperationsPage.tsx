@@ -81,7 +81,7 @@ export function PushOperationsPage() {
           <Button type="link" onClick={() => setExpandedKeys((keys) => keys.includes(row.id) ? keys.filter((key) => key !== row.id) : [...keys, row.id])}>
             {expandedKeys.includes(row.id) ? "收起详情" : "查看投递详情"}
           </Button>
-          {row.status === "FAILED" && <ReasonAction title="重试失败设备" path={`/admin/console/push/${row.id}/retry`} payload={{ version: row.updatedAt }} />}
+          {row.status === "FAILED" && row.retryable === true && <ReasonAction title="重试失败设备" path={`/admin/console/push/${row.id}/retry`} payload={{ version: row.updatedAt }} />}
         </Space>
       ),
     },

@@ -21,7 +21,7 @@ import {
   Table,
   Typography,
 } from "antd";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   listImConversations,
@@ -102,6 +102,7 @@ function History({
       window.clearInterval(timer);
     };
   }, []);
+  useLayoutEffect(() => { clear(); }, [includeArchives]);
   const run = async (older: boolean, renewCursor?: number) => {
     const q =
       older && submitted

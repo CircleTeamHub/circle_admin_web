@@ -77,7 +77,10 @@ export function AuditLogsPage() {
         limit: 20,
       }),
   });
+  const [actionSearch, setActionSearch] = useState("");
   const actionOptions = Object.entries(AUDIT_ACTION_LABEL).map(([value, label]) => ({ value, label: Object.values(AUDIT_ACTION_LABEL).filter((text) => text === label).length > 1 ? `${label}（${value}）` : label }));
+  const rawAction = actionSearch.trim();
+  if (/^[A-Za-z][A-Za-z0-9_.:-]{0,99}$/.test(rawAction) && !actionOptions.some(option => option.value === rawAction)) actionOptions.push({value:rawAction,label:`其他操作（${rawAction}）`});
   if (search.get("action") && !AUDIT_ACTION_LABEL[search.get("action")!]) {
     actionOptions.push({ value: search.get("action")!, label: `其他操作（${search.get("action")}）` });
   }
@@ -110,7 +113,7 @@ export function AuditLogsPage() {
         >
           <div className="audit-filter-grid">
             <Form.Item name="action" label="操作类型">
-              <Select allowClear showSearch optionFilterProp="label" placeholder="全部操作" options={actionOptions} />
+              <Select allowClear showSearch onSearch={setActionSearch} optionFilterProp="label" placeholder="全部操作" options={actionOptions} />
             </Form.Item>
             <Form.Item name="from" label="开始时间"><Input type="datetime-local" /></Form.Item>
             <Form.Item name="to" label="结束时间" dependencies={["from"]} rules={[

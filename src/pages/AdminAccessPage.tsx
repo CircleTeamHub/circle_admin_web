@@ -10,6 +10,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Alert,
+  message,
   Button,
   Form,
   Input,
@@ -211,6 +212,12 @@ export function AdminAccessPage() {
                 form.setFieldsValue({ nickname: row.nickname, accountId: row.accountId, role: row.consoleRole || undefined });
                 setConflict(false);
                 setError(undefined);
+              } else if (result.isSuccess) {
+                setSelected(null);
+                form.resetFields();
+                setConflict(false);
+                setError(undefined);
+                message.info("该账号已不在当前列表，请重新搜索并选择");
               }
             }}
           >
