@@ -515,3 +515,9 @@ it("shows actual groups rather than legacy IDs and keeps internal IDs in details
     `/community/circles/${id}`,
   );
 });
+it('makes standalone groups discoverable without using the IM route',async()=>{
+ mockedListCircles.mockResolvedValue({items:[],total:0,page:1,limit:20});
+ mockedListGroups.mockResolvedValue({items:[{groupId:'standalone',conversationId:'standalone',name:'独立讨论群',memberCount:3,linkedCircle:null}],total:1,page:1,limit:20} as never);
+ renderPage();fireEvent.click(screen.getByRole('button',{name:'查找和管理独立群聊'}));
+ expect(await screen.findByRole('link',{name:'独立讨论群'})).toHaveAttribute('href','/community/groups/standalone');
+});

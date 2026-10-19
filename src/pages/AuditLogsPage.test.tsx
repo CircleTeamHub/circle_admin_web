@@ -97,3 +97,9 @@ it.each(["IM_MEMBER_ROLE", "GROUP_MEMBER_ROLE_UPDATED"])("distinguishes duplicat
   fireEvent.click(screen.getByRole("button", { name: /查\s*询/ }));
   await waitFor(() => expect(platformList).toHaveBeenLastCalledWith("/admin/operations/audit-logs", expect.objectContaining({ action: code })));
 });
+it('allows an unknown backend action code to be selected and queried',async()=>{
+ renderAuditPage();await screen.findByText('没有符合条件的操作记录，请调整筛选条件。');
+ const action=screen.getByRole('combobox',{name:'操作类型'});fireEvent.mouseDown(action);fireEvent.change(action,{target:{value:'CUSTOM_FUTURE'}});
+ fireEvent.click(await screen.findByText('其他操作（CUSTOM_FUTURE）'));fireEvent.click(screen.getByRole('button',{name:/查\s*询/}));
+ await waitFor(()=>expect(platformList).toHaveBeenLastCalledWith('/admin/operations/audit-logs',expect.objectContaining({action:'CUSTOM_FUTURE'})));
+});

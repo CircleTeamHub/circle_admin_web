@@ -231,3 +231,11 @@ it("merges and paginates retained records without skipping either timeline", asy
   expect(queryImMessages).toHaveBeenCalledWith(direct.id, { reason: "核查留存", cursor: 31 }, true);
   expect(screen.getByRole("button", { name: "加载更早消息（再次审计）" })).toBeDisabled();
 });
+it('clears retained messages when archive access is removed while the view remains open',async()=>{
+ permissions.archive=true;
+ vi.mocked(queryImMessages).mockImplementation(async(_id,_filters,archive)=>({items:archive?[{id:'retained',height:1,senderId:'a',type:'text',createdAt:new Date().toISOString(),visibleUntil:null,mediaExpiresAt:null,content:{text:'retained secret'}}]:[],nextCursor:null}));
+ show();await screen.findByText('小明 与 小红');fireEvent.click(within(screen.getByRole('row',{name:/小明 与 小红/})).getByRole('button',{name:'查看聊天记录'}));fireEvent.change(screen.getByLabelText('访问原因'),{target:{value:'核查留存'}});fireEvent.click(screen.getByRole('button',{name:'审计并查询'}));
+ await screen.findByText('retained secret');permissions.archive=false;
+ const search=screen.getByPlaceholderText('输入会话或成员 ID 搜索私聊');fireEvent.change(search,{target:{value:'different'}});fireEvent.keyDown(search,{key:'Enter',code:'Enter'});
+ await waitFor(()=>expect(screen.queryByText('retained secret')).not.toBeInTheDocument());
+});

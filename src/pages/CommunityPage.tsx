@@ -9,6 +9,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Alert,
   Button,
+  Card,
   Input,
   Modal,
   Select,
@@ -24,6 +25,7 @@ import {
   disableCircle,
   listAdminCircles,
   restoreCircle,
+  listAdminGroups,
   type AdminCircle,
   type CircleAdminState,
 } from "../api/community";
@@ -70,8 +72,20 @@ function isPendingActionStale(action: PendingAction, circles: AdminCircle[]) {
   );
 }
 
+function GroupDirectory() {
+ const [page,setPage]=useState(1), [search,setSearch]=useState("");
+ const query=useQuery({queryKey:["community-group-directory",page,search],queryFn:()=>listAdminGroups({page,limit:20,search:search||undefined})});
+ return <Card title="群聊目录"><Input.Search aria-label="搜索群聊" placeholder="搜索群聊名称或编号" onSearch={value=>{setSearch(value.trim());setPage(1);}}/>
+ {query.isError ? <PageError error={query.error} onRetry={()=>{void query.refetch();}}/> : <Table rowKey="groupId" loading={query.isLoading} dataSource={query.data?.items??[]} pagination={{current:page,pageSize:20,total:query.data?.total??0,onChange:setPage}} columns={[
+ {title:"群聊名称",render:(_,group)=><Link to={`/community/groups/${encodeURIComponent(group.conversationId??group.groupId)}`}>{group.name||"未命名群聊"}</Link>},
+ {title:"成员数",dataIndex:"memberCount"},
+ {title:"关联圈子",render:(_,group)=>group.linkedCircle?.name??"独立群聊"},
+ ]}/>}</Card>;
+}
+
 export function CommunityPage() {
   const queryClient = useQueryClient();
+  const [showGroups, setShowGroups] = useState(false);
   const [circlePage, setCirclePage] = useState(1);
   const [circleSearch, setCircleSearch] = useState("");
   const [circleStatus, setCircleStatus] = useState<
@@ -294,6 +308,8 @@ export function CommunityPage() {
         <PageHeader title="圈子管理" description="查看圈子资料、成员与动态，处理停用和恢复。" />
       </div>
 
+      <Button onClick={()=>setShowGroups(value=>!value)}>{showGroups ? "收起群聊目录" : "查找和管理独立群聊"}</Button>
+      {showGroups && <GroupDirectory/>}
       <Alert
         type="warning"
         showIcon
