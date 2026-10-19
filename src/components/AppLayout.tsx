@@ -1,4 +1,3 @@
-import { AdminNicknameEditor } from "./AdminNicknameEditor";
 import { useEffect } from "react";
 import {
   DashboardOutlined,
@@ -107,7 +106,6 @@ export function AppLayout({ user }: { user: AuthUser }) {
             <Typography.Text title={`账号：${user.accountId}`}>
               {user.nickname || user.accountId}
             </Typography.Text>
-            <AdminNicknameEditor user={user} />
             <Button
               icon={<LogoutOutlined />}
               onClick={() => {
