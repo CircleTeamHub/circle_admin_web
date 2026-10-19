@@ -45,12 +45,12 @@ function renderLayout(permissions: AdminPermission[], initialEntry = "/") {
 }
 
 describe("AppLayout", () => {
-  it("shows role and identity without an environment badge",()=>{
+  it("shows role and identity without environment or nickname editing controls",()=>{
     renderLayout(["DASHBOARD"]);
     expect(screen.getByText("Admin")).toHaveAttribute("title","账号：admin");
     expect(screen.queryByText("admin",{exact:true})).not.toBeInTheDocument();
     expect(screen.queryByText("本地开发")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "修改昵称" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "修改昵称" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /退出/ })).toBeInTheDocument();
     expect(screen.getByText("运营")).toBeInTheDocument();
   });
