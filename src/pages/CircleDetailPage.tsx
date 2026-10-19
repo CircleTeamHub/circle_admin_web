@@ -431,7 +431,7 @@ export function CircleDetailPage() {
             bordered
             column={{ xs: 1, md: 2 }}
             items={[
-              { key: "name", label: "群聊名称", children: c.name },
+              { key: "name", label: "群聊名称", children: g.name },
               {
                 key: "mute",
                 label: "全员禁言",
