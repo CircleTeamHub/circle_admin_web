@@ -133,7 +133,7 @@ export function PushOperationsPage() {
     {
       title: "操作",
       render: (_: unknown, r: Push) =>
-        r.status === "FAILED" ? (
+        r.status === "FAILED" && r.retryable === true ? (
           <ReasonAction
             title="重试失败设备"
             path={`/admin/console/push/${r.id}/retry`}

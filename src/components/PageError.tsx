@@ -1,3 +1,4 @@
+import { useAdminAccess } from "../auth/admin-access";
 import { ApiError } from "../api/client";
 import { Alert, Button, Space } from "antd";
 import { readableErrorMessage } from "../utils/error-display";
@@ -12,6 +13,7 @@ export function PageError({
   onRetry?: () => void;
   message?: string;
 }) {
+  const { hasPermission } = useAdminAccess();
   return (
     <Alert
       type="error"
@@ -28,7 +30,7 @@ export function PageError({
               )}
             </>
           )}
-          {error instanceof ApiError && error.requestId && (
+          {error instanceof ApiError && error.requestId && hasPermission("AUDIT_READ") && (
             <a
               href={`/diagnostics?requestID=${encodeURIComponent(error.requestId)}`}
             >

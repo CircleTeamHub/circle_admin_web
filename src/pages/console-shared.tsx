@@ -1,3 +1,4 @@
+import { ApiError } from "../api/client";
 import { DISPLAY_LABELS } from "../utils/display";
 import { useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -90,6 +91,9 @@ export function ReasonAction({
       if (pending.current?.fingerprint !== fingerprint)
         pending.current = { fingerprint, key: crypto.randomUUID() };
       return consoleWrite(path, body, pending.current.key, method);
+    },
+    onError: (error) => {
+      if (error instanceof ApiError && error.status === 409) void client.invalidateQueries({ queryKey: ["console"] });
     },
     onSuccess: () => {
       pending.current = null;
