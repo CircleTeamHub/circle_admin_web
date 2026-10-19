@@ -16,7 +16,7 @@ import {
   Typography,
 } from "antd";
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import {
   getAdminGroup,
   getAdminGroupMembers,
@@ -211,14 +211,24 @@ function GroupEvents({ id }: { id: string }) {
 }
 export function GroupDetailPage() {
   const { conversationId = "" } = useParams();
-  const [tab, setTab] = useState("profile");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTab = searchParams.get("tab") ?? "profile";
+  const tab = ["profile", "members", "events", "history"].includes(requestedTab) ? requestedTab : "profile";
+  const setTab = (value: string) => setSearchParams((params) => {
+    params.set("tab", value);
+    return params;
+  });
   const { hasPermission } = useAdminAccess();
   const q = useQuery({
     queryKey: ["group-details", conversationId],
     queryFn: () => getAdminGroup(conversationId),
     enabled: !!conversationId,
   });
-  const back = <Link to="/community">返回圈子与群聊</Link>;
+  const back = hasPermission("IM_READ") ? (
+    <Link to="/im?type=GROUP">返回会话与聊天记录</Link>
+  ) : (
+    <Link to="/community">返回圈子管理</Link>
+  );
   if (q.isError)
     return (
       <Space orientation="vertical">

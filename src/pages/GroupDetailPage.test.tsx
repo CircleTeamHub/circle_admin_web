@@ -49,6 +49,7 @@ const group: AdminGroupDetail = {
 };
 function show(
   permissions: AdminPermission[] = ["COMMUNITY_MANAGE", "USER_READ", "IM_READ"],
+  initialEntry = "/community/groups/group-id",
 ) {
   render(
     <AdminAccessContext.Provider
@@ -59,7 +60,7 @@ function show(
           new QueryClient({ defaultOptions: { queries: { retry: false } } })
         }
       >
-        <MemoryRouter initialEntries={["/community/groups/group-id"]}>
+        <MemoryRouter initialEntries={[initialEntry]}>
           <Routes>
             <Route
               path="/community/groups/:conversationId"
@@ -171,4 +172,16 @@ it("does not present unknown group event codes as success", () => {
       createdAt: group.createdAt,
     }),
   ).toBe("修改群权限：扫码加入（已关闭）");
+});
+
+it("returns group details to the conversation list", async () => {
+  show();
+  expect(await screen.findByRole("link", { name: "返回会话与聊天记录" })).toHaveAttribute("href", "/im?type=GROUP");
+});
+
+it("opens the member list directly from the conversation count link", async () => {
+  show(undefined, "/community/groups/group-id?tab=members");
+  expect(await screen.findByText("老朋友")).toBeVisible();
+  expect(screen.getByRole("tab", { name: "群成员" })).toHaveAttribute("aria-selected", "true");
+  expect(getAdminGroupMembers).toHaveBeenCalledWith("group-id", 1);
 });

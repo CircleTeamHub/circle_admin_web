@@ -1,3 +1,4 @@
+import { PageHeader } from "../components/PageHeader";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button, Input, Modal, Space, Table, Typography, message } from "antd";
 import { useState } from "react";
@@ -55,8 +56,8 @@ export function SensitiveWordsPage() {
     else mutation.mutate({ action, values });
   };
   return (
-    <Space direction="vertical" className="page-stack" size={16}>
-      <Typography.Title level={3}>敏感词管理</Typography.Title>
+    <Space orientation="vertical" className="page-stack" size={16}>
+      <PageHeader title="敏感词管理" description="搜索和维护词条；批量操作前请核对内容。" />
       <Input.Search
         placeholder="搜索词条"
         maxLength={200}
@@ -94,6 +95,8 @@ export function SensitiveWordsPage() {
           onChange: setPage,
         }}
       />
+      <Typography.Title level={4} style={{ margin: "8px 0 0" }}>批量维护词条</Typography.Title>
+      <Typography.Text type="secondary">每行输入一个词，最多 1000 个。删除前会再次确认。</Typography.Text>
       <Input.TextArea
         rows={6}
         maxLength={65000}

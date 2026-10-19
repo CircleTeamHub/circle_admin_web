@@ -111,6 +111,15 @@ describe("CommunityPage", () => {
     mockedGroupOperation.mockResolvedValue({} as never);
   });
 
+  it("only lists circles and does not request the removed group list", async () => {
+    renderPage();
+    await screen.findByRole("link", { name: "摄影圈" });
+    expect(screen.getByRole("heading", { name: "圈子管理" })).toBeInTheDocument();
+    expect(screen.queryByRole("tab")).not.toBeInTheDocument();
+    expect(screen.queryByText("全部群聊")).not.toBeInTheDocument();
+    expect(mockedListGroups).not.toHaveBeenCalled();
+  });
+
   it("submits a confirmed circle disable operation", async () => {
     renderPage();
 
@@ -335,28 +344,6 @@ describe("CommunityPage", () => {
     expect(mockedDisable).not.toHaveBeenCalled();
   });
 
-  it("disables group writes after a background list refresh fails", async () => {
-    const { client } = renderPage();
-    fireEvent.click(await screen.findByText("全部群聊"));
-    const mute = await screen.findByRole("button", {
-      name: "全员禁言 周末徒步",
-    });
-    const dismiss = screen.getByRole("button", { name: "解散 周末徒步" });
-    expect(mute).toBeEnabled();
-    expect(dismiss).toBeEnabled();
-
-    mockedListGroups.mockRejectedValueOnce(new Error("poll failed"));
-    await client.refetchQueries({
-      queryKey: ["adminCommunity", "groups"],
-      exact: false,
-    });
-
-    await waitFor(() => {
-      expect(mute).toBeDisabled();
-      expect(dismiss).toBeDisabled();
-    });
-    expect(screen.getByText("OpenIM 群聊列表加载失败")).toBeInTheDocument();
-  });
 
   it("allows an unlinked circle to be disabled locally", async () => {
     mockedListCircles.mockResolvedValue({
@@ -410,63 +397,7 @@ describe("CommunityPage", () => {
     );
   });
 
-  it("can permanently dismiss a standalone OpenIM group", async () => {
-    renderPage();
-    fireEvent.click(await screen.findByText("全部群聊"));
-    fireEvent.click(
-      await screen.findByRole("button", { name: "解散 周末徒步" }),
-    );
-    fireEvent.change(screen.getByLabelText("操作原因"), {
-      target: { value: "诈骗群聊" },
-    });
-    fireEvent.change(screen.getByLabelText("确认文字"), {
-      target: { value: "group-2" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "确认提交" }));
 
-    await waitFor(() =>
-      expect(mockedGroupOperation).toHaveBeenCalledWith(
-        "group-2",
-        "DISMISS",
-        "诈骗群聊",
-        "group-2",
-        expect.any(String),
-      ),
-    );
-  });
-
-  it("marks dismissed OpenIM groups unavailable and disables their actions", async () => {
-    mockedListGroups.mockResolvedValue({
-      items: [
-        {
-          groupId: "group-dismissed",
-          name: "已解散群",
-          faceUrl: null,
-          status: 2,
-          muted: false,
-          memberCount: 0,
-          ownerUserId: null,
-          ownerName: null,
-          linkedCircle: null,
-          pendingOperation: null,
-        },
-      ],
-      total: 1,
-      page: 1,
-      limit: 20,
-    });
-    renderPage();
-
-    fireEvent.click(await screen.findByText("全部群聊"));
-
-    expect(await screen.findByText("已解散/不可用")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "全员禁言 已解散群" }),
-    ).toBeDisabled();
-    expect(
-      screen.getByRole("button", { name: "解散 已解散群" }),
-    ).toBeDisabled();
-  });
 
   it("does not offer restore after a linked group was permanently dismissed", async () => {
     mockedListCircles.mockResolvedValue({

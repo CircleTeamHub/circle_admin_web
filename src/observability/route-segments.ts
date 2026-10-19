@@ -26,6 +26,7 @@ export const STATIC_ROUTE_SEGMENTS: ReadonlySet<string> = new Set([
   "api",
   "automation-keys",
   "approve",
+  "archives",
   "assets",
   "audit-logs",
   "auth",

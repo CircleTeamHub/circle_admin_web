@@ -59,7 +59,7 @@ export const AUDIT_ACTION_LABEL: Record<string, string> = {
   "console.push.send": "发送系统通知",
   "console.push.settings": "调整推送设置",
 };
-const ENTITY_LABEL: Record<string, string> = {
+export const AUDIT_ENTITY_LABEL: Record<string, string> = {
   ...DISPLAY_LABELS.entity,
   admin_session: "管理员会话",
   http_request: "后台接口请求",
@@ -78,8 +78,8 @@ export function auditActionLabel(action: string) {
 }
 export function auditEntityLabel(type: string | null) {
   return type
-    ? Object.prototype.hasOwnProperty.call(ENTITY_LABEL, type)
-      ? ENTITY_LABEL[type]
+    ? Object.prototype.hasOwnProperty.call(AUDIT_ENTITY_LABEL, type)
+      ? AUDIT_ENTITY_LABEL[type]
       : "其他对象"
     : "未记录对象";
 }

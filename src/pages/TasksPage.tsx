@@ -1,3 +1,4 @@
+import { PageHeader } from "../components/PageHeader";
 import { Identifier, CodeValue } from "../components/ReadableValue";
 import { Link } from "react-router-dom";
 import {
@@ -43,7 +44,7 @@ export function TasksPage() {
   });
   return (
     <Space orientation="vertical" className="page-stack" size={16}>
-      <Typography.Title level={3}>后台任务中心</Typography.Title>
+      <PageHeader title="后台任务中心" description="查看待处理和失败任务，进入详情排查或重试。" />
       <Alert
         type="info"
         title="这里查看各类后台任务的处理概况。通知投递明细、设备结果和重试操作统一在“通知管理”处理。"

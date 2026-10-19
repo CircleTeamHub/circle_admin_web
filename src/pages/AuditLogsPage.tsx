@@ -1,5 +1,10 @@
+import { ReloadOutlined } from "@ant-design/icons";
+import { Identifier } from "../components/ReadableValue";
+import { PageHeader } from "../components/PageHeader";
 import { useEffect, useState } from "react";
 import {
+  AUDIT_ACTION_LABEL,
+  AUDIT_ENTITY_LABEL,
   auditActionLabel,
   auditEntityLabel,
   localDateTimeInput,
@@ -9,6 +14,10 @@ import { useUrlValue } from "./use-url-value";
 import { useQuery } from "@tanstack/react-query";
 import {
   Button,
+  Card,
+  Collapse,
+  Select,
+  Tag,
   Descriptions,
   Form,
   Input,
@@ -68,276 +77,112 @@ export function AuditLogsPage() {
         limit: 20,
       }),
   });
+  const actionOptions = Object.entries(AUDIT_ACTION_LABEL).map(([value, label]) => ({ value, label }));
+  if (search.get("action") && !AUDIT_ACTION_LABEL[search.get("action")!]) {
+    actionOptions.push({ value: search.get("action")!, label: `其他操作（${search.get("action")}）` });
+  }
+  const entityOptions = Object.entries(AUDIT_ENTITY_LABEL).map(([value, label]) => ({ value, label: Object.values(AUDIT_ENTITY_LABEL).filter((text) => text === label).length > 1 ? `${label}（${value}）` : label }));
+  if (search.get("entityType") && !AUDIT_ENTITY_LABEL[search.get("entityType")!]) {
+    entityOptions.push({ value: search.get("entityType")!, label: "其他对象" });
+  }
+  const advancedActive = Boolean(search.get("actorID") || search.get("entityID") || search.get("entityType"));
+  const operatorName = (row: AuditLog) => row.operator ? personLabel(row.operator) : row.actorAccountId || "未记录操作人";
   return (
-    <Space orientation="vertical" style={{ width: "100%" }}>
-      <Typography.Title level={3}>管理员操作记录</Typography.Title>
-      <Typography.Paragraph type="secondary">
-        记录正常管理操作及登录、退出记录；失败记录统一在“问题排查”查看。点击详情可查看完整编号，空白信息表示当时未记录。
-      </Typography.Paragraph>
-      <Form
-        form={form}
-        layout="vertical"
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-          gap: "12px 16px",
-          padding: 16,
-          background: "#fff",
-          borderRadius: 8,
-        }}
-        initialValues={Object.fromEntries(
-          Object.entries(filters).map(([k, v]) => [
-            k,
-            k === "from" || k === "to" ? localDateTimeInput(v) : v,
-          ]),
-        )}
-        onFinish={(values) => {
-          const result = { ...values };
-          for (const field of ["from", "to"])
-            if (result[field])
-              result[field] = new Date(result[field]).toISOString();
-          setFilters(result);
-        }}
-      >
-        {["action", "actorID", "entityType", "entityID"].map((name, i) => (
-          <Form.Item
-            key={name}
-            name={name}
-            label={["操作", "操作人 ID", "对象类型", "对象 ID"][i]}
-          >
-            <Input
-              allowClear
-              placeholder={
-                [
-                  "如 admin.login.success",
-                  "输入操作人 ID",
-                  "如 User、CircleMember",
-                  "输入对象 ID",
-                ][i]
-              }
-              maxLength={name === "action" ? 80 : 64}
-            />
-          </Form.Item>
-        ))}
-        <Form.Item name="from" label="开始">
-          <Input type="datetime-local" />
-        </Form.Item>
-        <Form.Item
-          name="to"
-          label="结束"
-          dependencies={["from"]}
-          rules={[
-            ({ getFieldValue }) => ({
-              validator(_, value) {
-                return !value ||
-                  !getFieldValue("from") ||
-                  new Date(value) >= new Date(getFieldValue("from"))
-                  ? Promise.resolve()
-                  : Promise.reject(new Error("结束时间不能早于开始时间"));
-              },
-            }),
-          ]}
-        >
-          <Input type="datetime-local" />
-        </Form.Item>
-        <Space style={{ alignSelf: "end", marginBottom: 24 }}>
-          <Button htmlType="submit" type="primary">
-            查询
-          </Button>
-          <Button
-            onClick={() => {
-              form.resetFields();
-              setSearch(new URLSearchParams());
-            }}
-          >
-            重置
-          </Button>
-        </Space>
-      </Form>
-      {query.error && (
-        <PageError error={query.error} onRetry={() => void query.refetch()} />
-      )}
-      <Table<AuditLog>
-        rowKey="id"
-        loading={query.isFetching}
-        dataSource={query.data?.items ?? []}
-        tableLayout="fixed"
-        scroll={{ x: 1180 }}
-        pagination={{
-          current: page,
-          pageSize: 20,
-          total: Math.min(query.data?.total ?? 0, 10000),
-          showSizeChanger: false,
-          onChange: setPage,
-        }}
-        columns={[
-          {
-            title: "操作人",
-            width: 160,
-            ellipsis: true,
-            render: (_, row) =>
-              row.operator
-                ? personLabel(row.operator)
-                : row.actorAccountId || row.actorID || "未记录操作人",
-          },
-          {
-            title: "做了什么",
-            width: 210,
-            render: (_, row) => (
-              <Space
-                orientation="vertical"
-                size={2}
-                style={{ maxWidth: "100%" }}
-              >
-                <span>{auditActionLabel(row.action)}</span>
-                <Typography.Text
-                  type="secondary"
-                  ellipsis={{ tooltip: row.action }}
-                  style={{ fontSize: 12, maxWidth: 180 }}
-                >
-                  {row.action}
-                </Typography.Text>
-              </Space>
-            ),
-          },
-          {
-            title: "操作对象",
-            width: 180,
-            render: (_, row) => (
-              <Space orientation="vertical" size={2}>
-                <span title={row.entityType}>
-                  {auditEntityLabel(row.entityType)}
-                </span>
-                {row.entityID && (
-                  <Button
-                    type="link"
-                    size="small"
-                    onClick={() => setSelected(row)}
-                  >
-                    对象详情
-                  </Button>
-                )}
-              </Space>
-            ),
-          },
-          {
-            title: "操作原因",
-            width: 180,
-            ellipsis: true,
-            render: (_, row) => row.reason || "—",
-          },
-          {
-            title: "时间",
-            width: 160,
-            dataIndex: "createdAt",
-            render: formatDateTime,
-          },
-          {
-            title: "请求 ID",
-            width: 150,
-            render: (_, row) =>
-              row.requestId ? (
-                <Button
-                  type="link"
-                  size="small"
-                  onClick={() => setSelected(row)}
-                >
-                  诊断详情
-                </Button>
-              ) : (
-                "—"
-              ),
-          },
-          {
-            title: "详情",
-            width: 80,
-            render: (_, row) => (
-              <Button type="link" onClick={() => setSelected(row)}>
-                查看
-              </Button>
-            ),
-          },
-        ]}
+    <Space orientation="vertical" size={20} className="page-stack audit-logs-page">
+      <PageHeader
+        title="管理员操作记录"
+        description="查看谁在什么时候做了什么。失败请求请到「问题排查」查看。"
+        extra={<Button icon={<ReloadOutlined />} loading={query.isFetching} onClick={() => void query.refetch()}>刷新记录</Button>}
       />
+      <Card>
+        <Form
+          form={form}
+          layout="vertical"
+          initialValues={Object.fromEntries(Object.entries(filters).map(([key, value]) => [key, key === "from" || key === "to" ? localDateTimeInput(value) : value]))}
+          onFinish={(values) => {
+            const result = { ...values };
+            for (const field of ["from", "to"])
+              if (result[field]) result[field] = new Date(result[field]).toISOString();
+            for (const key of Object.keys(result))
+              if (typeof result[key] === "string") result[key] = result[key].trim();
+            setFilters(result);
+          }}
+        >
+          <div className="audit-filter-grid">
+            <Form.Item name="action" label="操作类型">
+              <Select allowClear showSearch optionFilterProp="label" placeholder="全部操作" options={actionOptions} />
+            </Form.Item>
+            <Form.Item name="from" label="开始时间"><Input type="datetime-local" /></Form.Item>
+            <Form.Item name="to" label="结束时间" dependencies={["from"]} rules={[
+              ({ getFieldValue }) => ({ validator(_, value) {
+                return !value || !getFieldValue("from") || new Date(value) >= new Date(getFieldValue("from"))
+                  ? Promise.resolve() : Promise.reject(new Error("结束时间不能早于开始时间"));
+              } }),
+            ]}><Input type="datetime-local" /></Form.Item>
+          </div>
+          <div className="audit-filter-footer">
+            <Collapse ghost className="audit-advanced-filters" defaultActiveKey={advancedActive ? ["ids"] : []} items={[{
+              key: "ids", label: <Space>高级筛选{advancedActive && <Tag color="blue">已启用</Tag>}</Space>, forceRender: true,
+              children: <div className="audit-filter-grid audit-id-filters">
+                <Form.Item name="entityType" label="原始对象类型"><Select allowClear showSearch optionFilterProp="label" placeholder="全部对象类型（技术排查使用）" options={entityOptions} /></Form.Item>
+                <Form.Item name="actorID" label="操作人编号"><Input allowClear placeholder="粘贴操作人的内部编号" maxLength={64} /></Form.Item>
+                <Form.Item name="entityID" label="对象编号"><Input allowClear placeholder="粘贴操作对象的内部编号" maxLength={64} /></Form.Item>
+              </div>,
+            }]} />
+            <Space className="audit-filter-actions">
+              <Button htmlType="submit" type="primary">查询</Button>
+              <Button onClick={() => { form.resetFields(); setSearch(new URLSearchParams()); }}>重置</Button>
+            </Space>
+          </div>
+        </Form>
+      </Card>
+      {query.isError && <PageError error={query.error} onRetry={() => void query.refetch()} message="操作记录加载失败" />}
+      <Card title="操作记录" extra={<Typography.Text type="secondary">点击「查看详情」查看完整记录</Typography.Text>}>
+        <Table<AuditLog>
+          rowKey="id" loading={query.isFetching} dataSource={query.data?.items ?? []}
+          tableLayout="fixed" scroll={{ x: 980 }}
+          locale={{ emptyText: "没有符合条件的操作记录，请调整筛选条件。" }}
+          pagination={{ current: page, pageSize: 20, total: Math.min(query.data?.total ?? 0, 10000), showSizeChanger: false, onChange: setPage, hideOnSinglePage: true, showTotal: (total) => `共 ${total} 条记录` }}
+          columns={[
+            { title: "时间", width: 170, dataIndex: "createdAt", render: formatDateTime },
+            { title: "操作人", width: 160, ellipsis: true, render: (_, row) => operatorName(row) },
+            { title: "操作内容", width: 220, render: (_, row) => <Typography.Text strong>{auditActionLabel(row.action)}</Typography.Text> },
+            { title: "操作对象", width: 130, render: (_, row) => auditEntityLabel(row.entityType) },
+            { title: "操作原因", width: 200, ellipsis: true, render: (_, row) => row.reason || <Typography.Text type="secondary">未记录</Typography.Text> },
+            { title: "操作", width: 100, fixed: "right", render: (_, row) => <Button type="link" onClick={() => setSelected(row)}>查看详情</Button> },
+          ]}
+        />
+        {(query.data?.total ?? 0) > 10000 && <Typography.Text type="secondary">最多展示 10000 条记录，请缩小时间范围后查询。</Typography.Text>}
+      </Card>
       <Modal
-        title="审计日志详情"
-        open={!!selected}
-        onCancel={() => setSelected(null)}
-        footer={null}
-        width={720}
+        title="操作详情" open={!!selected} onCancel={() => setSelected(null)}
+        footer={<Button onClick={() => setSelected(null)}>关闭</Button>} width={760} centered destroyOnHidden
       >
-        {selected && (
-          <Descriptions
-            column={1}
-            bordered
-            size="small"
-            items={[
-              {
-                key: "action",
-                label: "操作",
-                children: auditActionLabel(selected.action),
-              },
-              {
-                key: "code",
-                label: "操作代码",
-                children: (
-                  <Typography.Text copyable>{selected.action}</Typography.Text>
-                ),
-              },
-              {
-                key: "actor",
-                label: "操作人",
-                children: selected.operator
-                  ? personLabel(selected.operator)
-                  : selected.actorAccountId || "未记录",
-              },
-              {
-                key: "actorID",
-                label: "操作人 ID",
-                children: (
-                  <Typography.Text copyable>{selected.actorID}</Typography.Text>
-                ),
-              },
-              {
-                key: "type",
-                label: "对象类型",
-                children: `${auditEntityLabel(selected.entityType)}（${selected.entityType || "—"}）`,
-              },
-              {
-                key: "id",
-                label: "对象 ID",
-                children: selected.entityID ? (
-                  <Typography.Text copyable>
-                    {selected.entityID}
-                  </Typography.Text>
-                ) : (
-                  "未记录"
-                ),
-              },
-              {
-                key: "reason",
-                label: "操作原因",
-                children: selected.reason || "未记录",
-              },
-              {
-                key: "time",
-                label: "时间",
-                children: formatDateTime(selected.createdAt),
-              },
-              {
-                key: "request",
-                label: "请求 ID",
-                children: selected.requestId ? (
-                  <Typography.Text copyable>
-                    {selected.requestId}
-                  </Typography.Text>
-                ) : (
-                  "未记录"
-                ),
-              },
-            ]}
-          />
-        )}
+        {selected && <Space orientation="vertical" size={20} className="page-stack audit-detail">
+          <div className="audit-detail-summary">
+            <Typography.Title level={4}>{auditActionLabel(selected.action)}</Typography.Title>
+            <Space wrap size={12}><Tag>{auditEntityLabel(selected.entityType)}</Tag><Typography.Text type="secondary">{formatDateTime(selected.createdAt)}</Typography.Text></Space>
+          </div>
+          <Descriptions column={1} items={[
+            { key: "actor", label: "操作人", children: operatorName(selected) },
+            { key: "target", label: "操作对象", children: auditEntityLabel(selected.entityType) },
+            { key: "reason", label: "操作原因", children: <span style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{selected.reason || "未记录操作原因"}</span> },
+          ]} />
+          <Collapse items={[{
+            key: "technical", label: "内部编号与操作代码（排查使用）",
+            children: <Space orientation="vertical" size={12} className="page-stack">
+              <Typography.Text type="secondary">联系技术人员排查时，可复制下方编号。日常查看无需关注。</Typography.Text>
+              <Descriptions column={1} size="small" items={[
+                { key: "record", label: "操作记录编号", children: <Identifier value={selected.id} inline /> },
+                { key: "action", label: "操作代码", children: <Typography.Text code copyable>{selected.action}</Typography.Text> },
+                { key: "actor", label: "操作人编号", children: <Identifier value={selected.actorID} inline /> },
+                { key: "entity", label: "对象编号", children: selected.entityID ? <Identifier value={selected.entityID} inline /> : "未记录" },
+                { key: "type", label: "原始对象类型", children: selected.entityType || "未记录" },
+                { key: "request", label: "排查编号", children: selected.requestId ? <Identifier value={selected.requestId} inline /> : "未记录" },
+              ]} />
+            </Space>,
+          }]} />
+        </Space>}
       </Modal>
     </Space>
   );

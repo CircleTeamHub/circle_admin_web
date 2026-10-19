@@ -1,3 +1,4 @@
+import { PageHeader } from "../components/PageHeader";
 import { UpdateDecisionSummary } from "../components/UpdateDecisionSummary";
 import { CodeValue } from "../components/ReadableValue";
 import { displayLabel } from "../utils/display";
@@ -136,8 +137,8 @@ export function ReleasesPage() {
     : "releases";
   return (
     <Space orientation="vertical" className="page-stack" size={16}>
-      <Space>
-        <Typography.Title level={3}>App 版本与更新计划</Typography.Title>
+      <Space wrap className="page-title-row">
+        <PageHeader title="App 版本与更新计划" description="登记已发布版本，配置更新范围与生效时间。" />
         <Button onClick={() => edit("release")}>登记已发布版本</Button>
         <Button type="primary" onClick={() => edit("plan")}>
           新建灰度计划

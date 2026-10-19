@@ -421,7 +421,7 @@ export function CircleDetailPage() {
         extra={
           g ? (
             <Link to={`/community/groups/${encodeURIComponent(g.id)}`}>
-              查看群聊完整详情
+              查看关联群聊
             </Link>
           ) : undefined
         }

@@ -8,6 +8,7 @@ export type AdminPermission =
   | "USER_SENSITIVE"
   | "COMMUNITY_MANAGE"
   | "IM_READ"
+  | "IM_ARCHIVE_READ"
   | "IM_MODERATE"
   | "SUPPORT_MANAGE"
   | "COMMERCE_MANAGE"

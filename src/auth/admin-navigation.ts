@@ -3,11 +3,12 @@ export const ADMIN_NAVIGATION: Array<{
   key: string;
   label: string;
   permission: AdminPermission;
+  additionalPermissions?: AdminPermission[];
 }> = [
   { key: "/", label: "数据看板", permission: "DASHBOARD" },
   { key: "/users", label: "用户管理", permission: "USER_READ" },
   { key: "/admin-access", label: "管理员权限", permission: "ACCESS_MANAGE" },
-  { key: "/community", label: "圈子与群聊", permission: "COMMUNITY_MANAGE" },
+  { key: "/community", label: "圈子管理", permission: "COMMUNITY_MANAGE" },
   { key: "/im", label: "会话与聊天记录", permission: "IM_READ" },
   { key: "/reports", label: "举报审核", permission: "MODERATION_MANAGE" },
   { key: "/content", label: "圈子内容管理", permission: "MODERATION_MANAGE" },
@@ -16,14 +17,8 @@ export const ADMIN_NAVIGATION: Array<{
     label: "敏感词管理",
     permission: "CONTENT_MANAGE",
   },
-  { key: "/memberships", label: "VIP 管理", permission: "COMMERCE_MANAGE" },
-  {
-    key: "/recharge",
-    label: "充值审核与收款码",
-    permission: "RECHARGE_MANAGE",
-  },
+  { key: "/memberships", label: "VIP和充值管理", permission: "COMMERCE_MANAGE", additionalPermissions: ["RECHARGE_MANAGE", "CONTENT_MANAGE"] },
   { key: "/support-agents", label: "客服配置", permission: "SUPPORT_MANAGE" },
-  { key: "/invites", label: "邀请码与邀请奖励", permission: "CONTENT_MANAGE" },
   { key: "/announcements", label: "系统公告", permission: "CONTENT_MANAGE" },
   { key: "/audit-logs", label: "管理员操作记录", permission: "AUDIT_READ" },
   { key: "/push-operations", label: "通知管理", permission: "SUPPORT_MANAGE" },

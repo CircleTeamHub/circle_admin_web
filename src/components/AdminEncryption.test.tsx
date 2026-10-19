@@ -24,6 +24,7 @@ beforeEach(() => {
   mocks.decrypt.mockResolvedValue({ text: 'private admin text' });
 });
 async function unlock() {
+  fireEvent.click(screen.getByText('加密消息访问 · 未解锁'));
   fireEvent.change(screen.getByLabelText('解密设备口令'), { target: { value: 'local-vault-passphrase' } });
   fireEvent.click(screen.getByRole('button', { name: '创建 / 解锁本机保险库' }));
   await screen.findByRole('button', { name: '锁定' });
@@ -56,6 +57,7 @@ describe('administrator device unlock boundary', () => {
     let resolve!: (value: unknown) => void;
     mocks.opened.mockReturnValue(new Promise(r => { resolve = r; }));
     render(<AdminEncryption><AdminEncryptedText content={content} reason="local test" /></AdminEncryption>);
+    fireEvent.click(screen.getByText('加密消息访问 · 未解锁'));
     fireEvent.change(screen.getByLabelText('解密设备口令'), { target: { value: 'local-vault-passphrase' } });
     fireEvent.click(screen.getByRole('button', { name: '创建 / 解锁本机保险库' }));
     await waitFor(() => expect(mocks.opened).toHaveBeenCalled());

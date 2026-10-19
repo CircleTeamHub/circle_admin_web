@@ -1,3 +1,4 @@
+import { PageError } from "../components/PageError";
 import { useAdminAccess } from "../auth/admin-access";
 import { Identifier, CodeValue } from "../components/ReadableValue";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -65,8 +66,8 @@ export function GroupMembersPage() {
     }
   };
   return (
-    <Space direction="vertical" style={{ width: "100%" }}>
-      <Link to="/im">返回会话管理</Link>
+    <Space orientation="vertical" style={{ width: "100%" }}>
+      <Link to="/im?type=GROUP">返回群聊列表</Link>
       <Typography.Title level={3}>
         群成员 · {members.data?.name || "未命名群聊"}
       </Typography.Title>
@@ -98,7 +99,7 @@ export function GroupMembersPage() {
         </Button>
       </Space>
       {members.isError && (
-        <Alert type="error" message="成员加载失败；需要 IM_MODERATE 权限。" />
+        <PageError error={members.error} onRetry={() => void members.refetch()} message="群成员加载失败" />
       )}
       <Table<ImMember>
         rowKey="id"
@@ -180,7 +181,7 @@ export function GroupMembersPage() {
           disabled: reason.trim().length < 2 || mutation.isPending || uncertain,
         }}
       >
-        <Space direction="vertical" style={{ width: "100%" }}>
+        <Space orientation="vertical" style={{ width: "100%" }}>
           <Alert
             type="warning"
             message="此操作立即影响群成员权限。群主和本人受保护；移除成员会收回群访问权限。"

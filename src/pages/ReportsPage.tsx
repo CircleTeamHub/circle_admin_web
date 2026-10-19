@@ -1,3 +1,4 @@
+import { PageHeader } from "../components/PageHeader";
 import { PostDetails } from "../components/PostDetails";
 import { Link } from "react-router-dom";
 import { useAdminAccess } from "../auth/admin-access";
@@ -38,7 +39,7 @@ function ReportUser({ user, userID }: { user?: AdminUser | null; userID?: string
   const id = user?.id || userID;
   const name = user?.status === "DELETED" ? "已注销用户" : user?.nickname || user?.accountId || "用户资料不可用";
   return (
-    <Space direction="vertical" size={0}>
+    <Space orientation="vertical" size={0}>
       {id && user && hasPermission("USER_READ") ? (
         <Link to={`/users/${encodeURIComponent(id)}`}>{name}</Link>
       ) : <Typography.Text>{name}</Typography.Text>}
@@ -187,8 +188,8 @@ export function ReportsPage() {
   ];
 
   return (
-    <Space direction="vertical" size={16} className="page-stack">
-      <Typography.Title level={3}>举报审核</Typography.Title>
+    <Space orientation="vertical" size={16} className="page-stack">
+      <PageHeader title="举报审核" description="查看举报与相关证据，填写原因后提交处理结果。" />
       <Tabs
         activeKey={kind}
         onChange={(key) => {
@@ -244,7 +245,7 @@ export function ReportsPage() {
         onClose={() => setSelected(null)}
       >
         {selected ? (
-          <Space direction="vertical" size={16} className="page-stack">
+          <Space orientation="vertical" size={16} className="page-stack">
             <Descriptions column={1} bordered size="small">
               <Descriptions.Item label="描述">
                 {selected.description || selected.reason || "-"}

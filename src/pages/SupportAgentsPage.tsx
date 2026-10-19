@@ -1,3 +1,4 @@
+import { PageHeader } from "../components/PageHeader";
 import {
   ArrowDownOutlined,
   ArrowUpOutlined,
@@ -204,7 +205,7 @@ function AddAgentModal({
         if (picked) onPick(picked.user);
       }}
     >
-      <Space direction="vertical" style={{ width: "100%" }}>
+      <Space orientation="vertical" style={{ width: "100%" }}>
         <Typography.Text type="secondary">
           按昵称或账号搜索。只列出状态正常的账号 —— 被封禁或注销的账号保存时会被后端拒绝。
         </Typography.Text>
@@ -405,7 +406,8 @@ export function SupportAgentsPage() {
   ];
 
   return (
-    <Space direction="vertical" size="large" style={{ width: "100%" }}>
+    <Space orientation="vertical" size="large" className="page-stack">
+      <PageHeader title="客服配置" description="按服务类型配置客服账号，保存前核对启用状态和显示顺序。" />
       {conflict ? (
         <Alert
           type="warning"
@@ -430,8 +432,8 @@ export function SupportAgentsPage() {
       <Alert
         type="info"
         showIcon
-        message="客服账号在这里维护，App 运行时拉取"
-        description="保存即对所有客户端生效，不需要重新发版。某一类没有启用的客服时，App 对应入口显示空态——不会回落到任何默认账号。"
+        message="客服配置保存后会同步到 App"
+        description="保存后无需重新发布 App。某类客服全部停用时，用户将看不到可联系的客服账号。"
       />
 
       {SUPPORT_CATEGORIES.map((category) => {

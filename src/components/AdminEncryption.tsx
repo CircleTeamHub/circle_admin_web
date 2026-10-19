@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Alert, Button, Card, Input, Modal, Space, Typography } from "antd";
+import { Alert, Button, Collapse, Input, Modal, Space, Typography } from "antd";
 import { ProtocolDevice } from "@circle/e2ee";
 import {
   EncryptionClient,
@@ -136,7 +136,10 @@ export function AdminEncryption({ children }: { children: React.ReactNode }) {
   };
   return (
     <Context.Provider value={client}>
-      <Card title="管理员解密设备">
+      <Collapse className="encryption-settings" items={[{
+        key: "device",
+        label: client ? "加密消息访问 · 已解锁" : "加密消息访问 · 未解锁",
+        children: (<>
         <Alert
           type="info"
           showIcon
@@ -342,7 +345,8 @@ export function AdminEncryption({ children }: { children: React.ReactNode }) {
         {status && (
           <Typography.Paragraph role="status">{status}</Typography.Paragraph>
         )}
-      </Card>
+      </>),
+      }]} />
       {children}
     </Context.Provider>
   );

@@ -50,9 +50,11 @@ export const listImConversations = (
   apiClient<{ items: ImConversation[]; total: number; sourceNote: string }>(
     `/admin/im/conversations?${new URLSearchParams({ keyword, page: String(page), limit: "20", ...(type ? { type } : {}) })}`,
   );
-export const queryImMessages = (id: string, filters: ImFilters) =>
+export const queryImMessages = (id: string, filters: ImFilters, archive = false) =>
   apiClient<{ items: ImMessage[]; nextCursor: number | null }>(
-    `/admin/im/conversations/${encodeURIComponent(id)}/messages/query`,
+    archive
+      ? `/admin/im/conversations/${encodeURIComponent(id)}/archives/query`
+      : `/admin/im/conversations/${encodeURIComponent(id)}/messages/query`,
     {
       method: "POST",
       cache: "no-store",
