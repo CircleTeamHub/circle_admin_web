@@ -1,5 +1,6 @@
+import { ReloadOutlined, TeamOutlined, UserOutlined } from "@ant-design/icons";
 import { Identifier } from "../components/ReadableValue";
-import { conversationTitle, conversationTypeLabel } from "./im-presentation";
+import { conversationTitle } from "./im-presentation";
 import { formatDateTime } from "../utils/format";
 import { PageError } from "../components/PageError";
 import {
@@ -10,17 +11,18 @@ import type { EncryptedContent } from "@circle/e2ee/relay-client.mjs";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   Alert,
+  Avatar,
   Button,
   Card,
+  Drawer,
   Input,
-  Select,
+  Tabs,
   Space,
   Table,
   Typography,
-  Tag,
 } from "antd";
-import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   listImConversations,
   queryImMessages,
@@ -38,6 +40,8 @@ function History({
   conversation: ImConversation;
   onClose: () => void;
 }) {
+  const { hasPermission } = useAdminAccess();
+  const includeArchives = hasPermission("IM_ARCHIVE_READ");
   const [filters, setFilters] = useState<ImFilters>({ reason: "" });
   const [submitted, setSubmitted] = useState<ImFilters>();
   const [rows, setRows] = useState<ImMessage[]>([]);
@@ -46,7 +50,24 @@ function History({
   const request = useMutation({
     gcTime: 0,
     retry: false,
-    mutationFn: (q: ImFilters) => queryImMessages(conversation.id, q),
+    mutationFn: async (q: ImFilters) => {
+      const results = await Promise.all([
+        queryImMessages(conversation.id, q, false),
+        ...(includeArchives ? [queryImMessages(conversation.id, q, true)] : []),
+      ]);
+      // Both sources use the same conversation height. Page the merged timeline
+      // at its last displayed height so neither source can skip older messages.
+      const unique = new Map<number, ImMessage>();
+      for (const result of results) {
+        for (const item of result.items) {
+          if (!unique.has(item.height)) unique.set(item.height, item);
+        }
+      }
+      const merged = [...unique.values()].sort((a, b) => b.height - a.height);
+      const items = merged.slice(0, 30);
+      const hasMore = merged.length > items.length || results.some((r) => r.nextCursor !== null);
+      return { items, nextCursor: hasMore ? (items.at(-1)?.height ?? null) : null };
+    },
   });
   const clear = () => {
     generation.current++;
@@ -81,6 +102,7 @@ function History({
       window.clearInterval(timer);
     };
   }, []);
+  useLayoutEffect(() => { clear(); }, [includeArchives]);
   const run = async (older: boolean, renewCursor?: number) => {
     const q =
       older && submitted
@@ -115,7 +137,9 @@ function History({
       <Alert
         type="warning"
         showIcon
-        message="每次查询必须填写访问原因并写入审计。仅提供自研持久化历史；已撤回、删除、清空及到期焚毁内容不可查看。"
+        message={includeArchives
+          ? "每次查询需填写原因并记录审计。此账号可同时查看仍在180天留存期内的焚毁记录；加密文字需在已授权设备上解锁。"
+          : "每次查询需填写原因并记录审计。已撤回、删除、清空及到期焚毁内容不可查看；阅后即焚消息到期后需重新查询。"}
       />
       <Space wrap style={{ margin: "16px 0" }}>
         <Input
@@ -177,9 +201,10 @@ function History({
         <Button onClick={clear}>清除已访问内容</Button>
       </Space>
       {request.isError && (
-        <Alert
-          type="error"
-          message="消息查询失败；请确认权限、过滤条件及审计服务可用后重试。"
+        <PageError
+          error={request.error}
+          message="消息查询失败"
+          onRetry={() => void run(false)}
         />
       )}
       <Table
@@ -249,7 +274,8 @@ function History({
 function ImPageContent() {
   const { hasPermission } = useAdminAccess();
   const [keyword, setKeyword] = useState("");
-  const [type, setType] = useState<string>();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const type = searchParams.get("type") === "GROUP" ? "GROUP" : "DIRECT";
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<ImConversation>();
   const sessions = useQuery({
@@ -257,108 +283,132 @@ function ImPageContent() {
     queryFn: () => listImConversations(keyword, type, page),
   });
   return (
-    <Space direction="vertical" style={{ width: "100%" }}>
-      <Typography.Title level={3}>会话与聊天记录</Typography.Title>
+    <Space orientation="vertical" size={16} className="page-stack im-conversations">
+      <div>
+      <Typography.Title level={3} style={{ margin: 0 }}>会话与聊天记录</Typography.Title>
       <Typography.Paragraph type="secondary">
-        先找到会话，再填写访问原因查询聊天记录。加密文字需在已授权设备上解锁后查看。
+        {type === "GROUP"
+          ? "点击群名查看群资料，点击人数查看群成员；聊天记录从右侧按钮进入。"
+          : "点击会话名称查看双方资料；聊天记录从右侧按钮进入。"}
       </Typography.Paragraph>
-      <Space wrap>
+      </div>
+      <Card className="im-conversations-card">
+      <Tabs
+        activeKey={type}
+        items={[
+          { key: "DIRECT", label: "私聊" },
+          { key: "GROUP", label: "群聊" },
+        ]}
+        onChange={(value) => {
+          setSearchParams((params) => {
+            params.set("type", value);
+            return params;
+          });
+          setPage(1);
+          setSelected(undefined);
+        }}
+      />
+      <div className="im-conversations-toolbar">
         <Input.Search
           aria-label="搜索会话"
-          placeholder="搜索群名称，或输入会话 / 圈子 / 成员 ID"
+          placeholder={type === "GROUP"
+            ? "搜索群名称，或输入会话 / 圈子 / 成员 ID"
+            : "输入会话或成员 ID 搜索私聊"}
           allowClear
-          style={{ width: 380, maxWidth: "100%" }}
+          className="im-conversations-search"
           onSearch={(v) => {
             setKeyword(v);
             setPage(1);
           }}
         />
-        <Select
-          aria-label="会话类型"
-          allowClear
-          placeholder="全部类型"
-          style={{ width: 140 }}
-          options={[
-            { value: "DIRECT", label: "单聊" },
-            { value: "GROUP", label: "群聊" },
-          ]}
-          onChange={(v) => {
-            setType(v);
-            setPage(1);
-          }}
-        />
-        <Button onClick={() => void sessions.refetch()}>刷新</Button>
-      </Space>
+        <Space>
+          <Typography.Text type="secondary" aria-live="polite">
+            {sessions.data ? `共 ${sessions.data.total} 个${type === "GROUP" ? "群聊" : "私聊"}` : "正在加载会话"}
+          </Typography.Text>
+          <Button icon={<ReloadOutlined />} loading={sessions.isFetching} onClick={() => void sessions.refetch()}>刷新</Button>
+        </Space>
+      </div>
       {sessions.isError && (
         <PageError
           error={sessions.error}
           onRetry={() => void sessions.refetch()}
         />
       )}
-      <Alert
-        type="info"
-        title="这里只列出当前聊天系统保存的会话；旧聊天系统的历史记录暂不支持查询。"
-      />
       <Table<ImConversation>
         rowKey="id"
         loading={sessions.isFetching}
         dataSource={sessions.data?.items}
         tableLayout="fixed"
-        scroll={{ x: 1080 }}
-        locale={{ emptyText: "没有找到符合条件的会话" }}
+        scroll={{ x: type === "GROUP" ? 760 : 660 }}
+        locale={{ emptyText: keyword ? "没有找到匹配的会话，请调整搜索条件" : `暂无${type === "GROUP" ? "群聊" : "私聊"}` }}
         pagination={{
           current: page,
           pageSize: 20,
           total: sessions.data?.total,
           showSizeChanger: false,
           onChange: setPage,
+          hideOnSinglePage: true,
         }}
         columns={[
           {
-            title: "会话",
+            title: type === "GROUP" ? "群聊" : "会话",
             width: 260,
             render: (_, r) => (
-              <Space
-                orientation="vertical"
-                size={2}
-                style={{ maxWidth: "100%" }}
-              >
-                {r.type === "GROUP" && hasPermission("COMMUNITY_MANAGE") ? (
-                  <Link to={`/community/groups/${encodeURIComponent(r.id)}`}>
-                    {conversationTitle(r)}
-                  </Link>
-                ) : (
-                  <Typography.Text
-                    strong
-                    ellipsis={{ tooltip: conversationTitle(r) }}
-                    style={{ maxWidth: 220 }}
-                  >
-                    {conversationTitle(r)}
-                  </Typography.Text>
-                )}
-                <Identifier value={r.id} label="会话" />
+              <Space align="start" size={12} style={{ maxWidth: "100%" }}>
+                <Avatar
+                  shape="square"
+                  size={40}
+                  icon={r.type === "GROUP" ? <TeamOutlined /> : <UserOutlined />}
+                  style={{ background: r.type === "GROUP" ? "#f0eaff" : "#eaf2ff", color: r.type === "GROUP" ? "#6941c6" : "#2563eb", flexShrink: 0 }}
+                />
+                <div className="im-conversation-identity">
+                  <div className="im-conversation-name-row">
+                    {r.type === "GROUP" ? (
+                      hasPermission("COMMUNITY_MANAGE") ? (
+                        <Link
+                          to={`/community/groups/${encodeURIComponent(r.id)}`}
+                          title={conversationTitle(r)}
+                          className="im-conversation-title"
+                        >
+                          {conversationTitle(r)}
+                        </Link>
+                      ) : (
+                        <Typography.Text strong>{conversationTitle(r)}</Typography.Text>
+                      )
+                    ) : (
+                      <Link
+                        to={`/im/conversations/${encodeURIComponent(r.id)}`}
+                        title={conversationTitle(r)}
+                        className="im-conversation-title"
+                      >
+                        {conversationTitle(r)}
+                      </Link>
+                    )}
+                  </div>
+
+                </div>
               </Space>
             ),
           },
           {
-            title: "类型 / 人数",
-            width: 120,
-            render: (_, r) => (
-              <Space orientation="vertical" size={2}>
-                <Tag color={r.type === "DIRECT" ? "blue" : "purple"}>
-                  {conversationTypeLabel(r.type)}
-                </Tag>
-                <Typography.Text type="secondary">
-                  {r.memberCount} 人
-                </Typography.Text>
-              </Space>
-            ),
-          },
-          {
-            title: "参与人",
+            title: type === "GROUP" ? "群成员" : "参与人",
             width: 230,
-            render: (_, r) => (
-              <Space orientation="vertical" size={2}>
+            render: (_, r) => r.type === "GROUP" ? (
+              hasPermission("COMMUNITY_MANAGE") || hasPermission("IM_MODERATE") ? (
+                <Link
+                  className="im-group-member-count"
+                  aria-label={`查看${conversationTitle(r)}的群成员，共${r.memberCount}人`}
+                  to={hasPermission("COMMUNITY_MANAGE")
+                    ? `/community/groups/${encodeURIComponent(r.id)}?tab=members`
+                    : `/im/conversations/${encodeURIComponent(r.id)}/members`}
+                >
+                  {r.memberCount} 人
+                </Link>
+              ) : (
+                <span className="im-group-member-count">{r.memberCount} 人</span>
+              )
+            ) : (
+              <div className="im-direct-participants">
                 {r.participants.length ? (
                   r.participants.map((p) =>
                     hasPermission("USER_READ") ? (
@@ -380,51 +430,18 @@ function ImPageContent() {
                     暂无当前成员
                   </Typography.Text>
                 )}
-                {r.memberCount > r.participants.length && (
-                  <Typography.Text type="secondary">
-                    共 {r.memberCount} 人，仅显示前 {r.participants.length} 人
-                  </Typography.Text>
-                )}
-              </Space>
+
+              </div>
             ),
           },
           {
-            title: "所属圈子",
-            width: 180,
-            render: (_, r) =>
-              r.circleID ? (
-                <Space orientation="vertical" size={2}>
-                  {hasPermission("COMMUNITY_MANAGE") ? <Link
-                    to={`/community/circles/${encodeURIComponent(r.circleID)}`}
-                  >
-                    {r.circle?.name || "查看圈子详情"}
-                  </Link> : <span>{r.circle?.name || "关联圈子"}</span>}
-                </Space>
-              ) : (
-                "独立会话"
-              ),
-          },
-          {
-            title: "最近消息时间",
-            width: 160,
-            render: (_, r) =>
-              r.lastMessageAt
-                ? formatDateTime(r.lastMessageAt)
-                : "未记录消息时间",
-          },
-          {
             title: "操作",
-            width: 130,
+            width: type === "GROUP" ? 240 : 130,
             render: (_, r) => (
-              <Space orientation="vertical" size={4}>
-                <Button type="link" onClick={() => setSelected(r)}>
+              <Space orientation={r.type === "GROUP" ? "horizontal" : "vertical"} wrap size={[12, 8]}>
+                <Button onClick={() => setSelected(r)}>
                   {selected?.id === r.id ? "正在查看记录" : "查看聊天记录"}
                 </Button>
-                {r.type === "GROUP" && hasPermission("COMMUNITY_MANAGE") && (
-                  <Link to={`/community/groups/${encodeURIComponent(r.id)}`}>
-                    群聊详情
-                  </Link>
-                )}
                 {r.type === "GROUP" && hasPermission("IM_MODERATE") && (
                   <Link
                     to={`/im/conversations/${encodeURIComponent(r.id)}/members`}
@@ -437,12 +454,23 @@ function ImPageContent() {
           },
         ]}
       />
-      {selected && (
-        <History
-          key={selected.id}
-          conversation={selected}
+      <Typography.Paragraph type="secondary" className="im-conversations-note">
+        仅支持当前聊天系统保存的记录。加密文字需在已授权设备上解锁后查看。
+      </Typography.Paragraph>
+      </Card>
+      {selected && selected.type === type && (
+        <Drawer
+          open
+          title="聊天记录"
+          size="min(1100px, 100vw)"
           onClose={() => setSelected(undefined)}
-        />
+        >
+          <History
+            key={selected.id}
+            conversation={selected}
+            onClose={() => setSelected(undefined)}
+          />
+        </Drawer>
       )}
     </Space>
   );

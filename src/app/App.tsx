@@ -1,3 +1,4 @@
+import { DirectConversationPage } from "../pages/DirectConversationPage";
 import { UserContentDetailPage } from "../pages/UserContentDetailPage";
 import { GroupDetailPage } from "../pages/GroupDetailPage";
 import { CircleDetailPage } from "../pages/CircleDetailPage";
@@ -39,15 +40,13 @@ import {
   RequirePermission,
   type AdminAccess,
 } from "../auth/admin-access";
-import { MembershipsPage } from "../pages/MembershipsPage";
-import { SupportRechargePage } from "../pages/SupportRechargePage";
+import { VipRechargePage } from "../pages/VipRechargePage";
 import { ContentPage } from "../pages/ContentPage";
 import { SensitiveWordsPage } from "../pages/SensitiveWordsPage";
 import { AnnouncementsPage } from "../pages/AnnouncementsPage";
 import { ImPage } from "../pages/ImPage";
 import { GroupMembersPage } from "../pages/GroupMembersPage";
 import { AuditLogsPage } from "../pages/AuditLogsPage";
-import { InvitesPage } from "../pages/InvitesPage";
 import { AdminAccessPage } from "../pages/AdminAccessPage";
 
 const queryClient = new QueryClient({
@@ -294,22 +293,8 @@ function AdminRoutes({
                   </RequirePermission>
                 }
               />
-              <Route
-                path="memberships"
-                element={
-                  <RequirePermission permission="COMMERCE_MANAGE">
-                    <MembershipsPage />
-                  </RequirePermission>
-                }
-              />
-              <Route
-                path="recharge"
-                element={
-                  <RequirePermission permission="RECHARGE_MANAGE">
-                    <SupportRechargePage />
-                  </RequirePermission>
-                }
-              />
+              <Route path="memberships" element={<VipRechargePage />} />
+              <Route path="recharge" element={<VipRechargePage />} />
               <Route
                 path="support-recharge"
                 element={
@@ -351,6 +336,14 @@ function AdminRoutes({
                 }
               />
               <Route
+                path="im/conversations/:conversationId"
+                element={
+                  <RequirePermission permission="IM_READ">
+                    <DirectConversationPage />
+                  </RequirePermission>
+                }
+              />
+              <Route
                 path="im/conversations/:conversationId/members"
                 element={
                   <RequirePermission permission="IM_MODERATE">
@@ -366,14 +359,7 @@ function AdminRoutes({
                   </RequirePermission>
                 }
               />
-              <Route
-                path="invites"
-                element={
-                  <RequirePermission permission="CONTENT_MANAGE">
-                    <InvitesPage />
-                  </RequirePermission>
-                }
-              />
+              <Route path="invites" element={<VipRechargePage />} />
               <Route
                 path="admin-access"
                 element={
@@ -415,7 +401,19 @@ export function App() {
     return unsubscribe;
   }, []);
   return (
-    <ConfigProvider locale={zhCN}>
+    <ConfigProvider locale={zhCN} theme={{
+      token: {
+        colorPrimary: "#2563eb", colorText: "#172b4d", colorTextSecondary: "#52627a",
+        colorBgLayout: "#f5f7fb", colorBorderSecondary: "#e5eaf2", borderRadius: 10,
+        fontSize: 14, controlHeight: 36, fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif',
+      },
+      components: {
+        Table: { headerBg: "#f7f9fc", cellPaddingBlock: 12, cellPaddingInline: 16, rowHoverBg: "#f2f6ff" },
+        Card: { headerFontSize: 15, headerHeight: 52 },
+        Tabs: { horizontalMargin: "0 0 20px 0", titleFontSize: 14 },
+        Menu: { itemHeight: 40, itemBorderRadius: 8 },
+      },
+    }}>
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <Routes>

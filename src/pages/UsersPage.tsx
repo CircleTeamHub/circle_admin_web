@@ -1,3 +1,4 @@
+import { PageHeader } from "../components/PageHeader";
 import { displayLabel } from "../utils/display";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -193,8 +194,8 @@ export function UsersPage() {
 
   return (
     <Space orientation="vertical" size={16} className="page-stack">
-      <Typography.Title level={3}>用户管理</Typography.Title>
-      <Space wrap>
+      <PageHeader title="用户管理" description="搜索用户，查看资料、账号状态与相关记录。" />
+      <Space wrap className="page-toolbar">
         <Input.Search
           allowClear
           aria-label="搜索用户"

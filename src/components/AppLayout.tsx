@@ -1,5 +1,4 @@
 import { AdminNicknameEditor } from "./AdminNicknameEditor";
-import { displayLabel } from "../utils/display";
 import { useEffect } from "react";
 import {
   DashboardOutlined,
@@ -11,7 +10,7 @@ import {
   TeamOutlined,
   ToolOutlined,
 } from "@ant-design/icons";
-import { Button, Layout, Menu, Space, Tag, Typography } from "antd";
+import { Breadcrumb, Button, Layout, Menu, Space, Tag, Typography } from "antd";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { clearSession } from "../auth/session";
 import type { AuthUser } from "../types";
@@ -27,32 +26,21 @@ export function AppLayout({ user }: { user: AuthUser }) {
     document.documentElement.scrollTop = 0;
     document.body.scrollTop = 0;
   }, [location.pathname]);
-  const env = import.meta.env.VITE_APP_ENV || "development";
   const { access, hasPermission } = useAdminAccess();
 
-  return (
-    <Layout className="app-shell">
-      <Sider
-        breakpoint="lg"
-        collapsedWidth={64}
-        width={216}
-        theme="light"
-        className="app-sider"
-      >
-        <div className="brand">Circle Admin</div>
-        <Menu
-          mode="inline"
-          selectedKeys={[
-            ADMIN_NAVIGATION.find(
+  const selectedKey = ["/recharge", "/support-recharge", "/invites"].includes(location.pathname)
+              ? "/memberships"
+              : location.pathname.startsWith("/community/groups/") && hasPermission("IM_READ")
+              ? "/im"
+              : ADMIN_NAVIGATION.find(
               (item) =>
                 item.key !== "/" &&
                 (location.pathname === item.key ||
                   location.pathname.startsWith(`${item.key}/`)),
-            )?.key ?? "/",
-          ]}
-          onClick={({ key }) => navigate(key)}
-          items={ADMIN_NAVIGATION.filter((item) =>
-            hasPermission(item.permission),
+            )?.key ?? "/";
+  const currentSection = ADMIN_NAVIGATION.find((item) => item.key === selectedKey)?.label ?? "后台管理";
+  const navigationItems = ADMIN_NAVIGATION.filter((item) =>
+            hasPermission(item.permission) || Boolean(item.additionalPermissions?.some(hasPermission)),
           ).map((item) => ({
             ...item,
             icon:
@@ -71,15 +59,41 @@ export function AppLayout({ user }: { user: AuthUser }) {
               ) : (
                 <SafetyCertificateOutlined />
               ),
-          }))}
+          }));
+  const navigationGroups = [
+    { label: "概览", keys: ["/"] },
+    { label: "用户与社群", keys: ["/users", "/community", "/im", "/content", "/reports", "/sensitive-words"] },
+    { label: "运营管理", keys: ["/memberships", "/support-agents", "/announcements", "/push-operations"] },
+    { label: "系统与排查", keys: ["/admin-access", "/audit-logs", "/tasks", "/releases", "/diagnostics", "/user-events", "/automation-keys", "/system"] },
+  ];
+
+  return (
+    <Layout className="app-shell">
+      <a className="skip-to-content" href="#main-content">跳到页面内容</a>
+      <Sider
+        breakpoint="lg"
+        collapsedWidth={64}
+        width={232}
+        theme="light"
+        className="app-sider"
+      >
+        <div className="brand"><span>Circle Admin</span><small>运营管理后台</small></div>
+        <Menu
+          mode="inline"
+          selectedKeys={[selectedKey]}
+          onClick={({ key }) => navigate(key)}
+          items={navigationGroups.map((group) => ({
+            type: "group" as const,
+            key: group.label,
+            label: group.label,
+            children: navigationItems.filter((item) => group.keys.includes(item.key)),
+          })).filter((group) => group.children.length > 0)}
         />
       </Sider>
       <Layout>
         <Header className="app-header">
+          <Breadcrumb className="app-breadcrumb" items={[{ title: "后台管理" }, { title: currentSection }]} />
           <Space>
-            <Tag color={env === "production" ? "red" : "blue"} title={env}>
-              {displayLabel("environment", env)}
-            </Tag>
             <Tag>
               {(
                 {
@@ -105,7 +119,7 @@ export function AppLayout({ user }: { user: AuthUser }) {
             </Button>
           </Space>
         </Header>
-        <Content className="app-content">
+        <Content className="app-content" id="main-content" tabIndex={-1}>
           <Outlet />
         </Content>
       </Layout>

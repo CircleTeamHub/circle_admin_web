@@ -1,3 +1,4 @@
+import { PageHeader } from "../components/PageHeader";
 import { CodeValue } from "../components/ReadableValue";
 import { useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -34,7 +35,7 @@ function localInput(value: string) {
     .toISOString()
     .slice(0, 19);
 }
-export function InvitesPage() {
+export function InvitesPage({ embedded = false }: { embedded?: boolean }) {
   const [tab, setTab] = useState("personal");
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
@@ -154,7 +155,7 @@ export function InvitesPage() {
   };
   return (
     <Space orientation="vertical" style={{ width: "100%" }}>
-      <Typography.Title level={3}>邀请码与邀请关系</Typography.Title>
+      {!embedded && <PageHeader title="邀请码与邀请关系" description="管理个人和活动邀请码，查看邀请关系与奖励记录。" />}
       <Tabs
         activeKey={tab}
         onChange={(value) => {

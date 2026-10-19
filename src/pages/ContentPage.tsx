@@ -1,3 +1,4 @@
+import { PageHeader } from "../components/PageHeader";
 import { PostSignupsButton } from "../components/PostSignupsButton";
 import { Identifier, CodeValue } from "../components/ReadableValue";
 import { displayLabel } from "../utils/display";
@@ -64,12 +65,12 @@ export function ContentPage() {
     },
   });
   return (
-    <Space direction="vertical" className="page-stack" size={16}>
-      <Typography.Title level={3}>圈子内容管理</Typography.Title>
+    <Space orientation="vertical" className="page-stack" size={16}>
+      <PageHeader title="圈子内容管理" description="搜索和检查圈子动态，处理违规内容。" />
       <Typography.Paragraph type="secondary">
         查看圈子动态、报名人数和报名名单，点击报名人的姓名可进入用户详情。用户笔记在用户详情查看，聊天记录在会话管理查看。
       </Typography.Paragraph>
-      <Space wrap>
+      <Space wrap className="page-toolbar">
         <Input.Search
           placeholder="搜索帖子内容"
           maxLength={200}

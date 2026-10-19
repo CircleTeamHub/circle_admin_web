@@ -1,3 +1,4 @@
+import { PageHeader } from "../components/PageHeader";
 import { Identifier } from "../components/ReadableValue";
 import { membershipLabel } from "../utils/display";
 import { useRef, useState } from "react";
@@ -39,7 +40,7 @@ export function membershipGrantPlanLabel(grant: {
   };
   return `${membershipLabel(grant.newLevel)}（${duration[grant.newLevel] ?? "未记录时长"}）`;
 }
-export function MembershipsPage() {
+export function MembershipsPage({ embedded = false }: { embedded?: boolean }) {
   const [params] = useSearchParams();
   const qc = useQueryClient();
   const [search, setSearch] = useState(params.get("search") ?? "");
@@ -89,8 +90,8 @@ export function MembershipsPage() {
   });
   return (
     <Space orientation="vertical" className="page-stack">
-      <Typography.Title level={3}>会员管理</Typography.Title>
-      <Space wrap>
+      {!embedded && <PageHeader title="会员管理" description="查看会员等级和到期时间，核对后办理激活或升级。" />}
+      <Space wrap className="page-toolbar">
         <Input.Search
           placeholder="账号或昵称"
           maxLength={64}

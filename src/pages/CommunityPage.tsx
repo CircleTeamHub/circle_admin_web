@@ -1,7 +1,6 @@
+import { PageHeader } from "../components/PageHeader";
 import { Link } from "react-router-dom";
-import { Identifier } from "../components/ReadableValue";
 import {
-  ExclamationCircleOutlined,
   MessageOutlined,
   StopOutlined,
   UndoOutlined,
@@ -10,12 +9,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Alert,
   Button,
+  Card,
   Input,
   Modal,
   Select,
   Space,
   Table,
-  Tabs,
   Tag,
   Typography,
   message,
@@ -25,40 +24,25 @@ import { useState } from "react";
 import {
   disableCircle,
   listAdminCircles,
-  listAdminGroups,
-  requestGroupOperation,
   restoreCircle,
+  listAdminGroups,
   type AdminCircle,
-  type AdminGroupOperationType,
-  type AdminOpenimGroup,
   type CircleAdminState,
 } from "../api/community";
 import { PageError } from "../components/PageError";
 import { getErrorMessage } from "../utils/errors";
 
-type PendingAction =
-  | ({
-      kind: "circle";
-      target: AdminCircle;
-      action: "disable" | "restore";
-      expectedConfirmation: string;
-    } & { idempotencyKey: string; submittedPayload: string | null })
-  | ({
-      kind: "group";
-      target: AdminOpenimGroup;
-      action: AdminGroupOperationType;
-      expectedConfirmation: string;
-    } & { idempotencyKey: string; submittedPayload: string | null });
-
-type PendingActionDraft =
-  | Omit<
-      Extract<PendingAction, { kind: "circle" }>,
-      "idempotencyKey" | "submittedPayload"
-    >
-  | Omit<
-      Extract<PendingAction, { kind: "group" }>,
-      "idempotencyKey" | "submittedPayload"
-    >;
+type PendingAction = {
+  target: AdminCircle;
+  action: "disable" | "restore";
+  expectedConfirmation: string;
+  idempotencyKey: string;
+  submittedPayload: string | null;
+};
+type PendingActionDraft = Omit<
+  PendingAction,
+  "idempotencyKey" | "submittedPayload"
+>;
 
 const CIRCLE_STATE: Record<CircleAdminState, { label: string; color: string }> =
   {
@@ -70,65 +54,43 @@ const CIRCLE_STATE: Record<CircleAdminState, { label: string; color: string }> =
     DISMISSED: { label: "群聊已永久解散", color: "red" },
   };
 
-function operationLabel(type: AdminGroupOperationType) {
-  return type === "MUTE"
-    ? "全员禁言"
-    : type === "UNMUTE"
-      ? "解除禁言"
-      : "永久解散";
-}
-
-function isManageableGroupStatus(status: number) {
-  return status === 0 || status === 3;
-}
-
-function isPendingActionStale(
-  action: PendingAction,
-  circles: AdminCircle[],
-  groups: AdminOpenimGroup[],
-) {
-  if (action.kind === "circle") {
-    const target = circles.find((circle) => circle.id === action.target.id);
-    if (!target) return true;
-    if (action.action === "disable") {
-      return (
-        target.deleted ||
-        ["DISABLING", "RESTORING", "DISMISSED"].includes(target.adminState)
-      );
-    }
+function isPendingActionStale(action: PendingAction, circles: AdminCircle[]) {
+  const target = circles.find((circle) => circle.id === action.target.id);
+  if (!target) return true;
+  if (action.action === "disable") {
     return (
-      !target.deleted ||
-      !["DISABLED", "SYNC_FAILED"].includes(target.adminState) ||
-      !target.adminDisabledAt ||
-      !target.adminDisabledBy ||
-      !target.adminDisableReason
+      target.deleted ||
+      ["DISABLING", "RESTORING", "DISMISSED"].includes(target.adminState)
     );
   }
-  const target = groups.find(
-    (group) => group.groupId === action.target.groupId,
-  );
-  if (!target) return true;
-  const busy =
-    target.pendingOperation &&
-    ["PENDING", "PROCESSING"].includes(target.pendingOperation.status);
   return (
-    !isManageableGroupStatus(target.status) ||
-    Boolean(busy) ||
-    (action.action === "MUTE" && target.muted) ||
-    (action.action === "UNMUTE" && !target.muted)
+    !target.deleted ||
+    !["DISABLED", "SYNC_FAILED"].includes(target.adminState) ||
+    !target.adminDisabledAt ||
+    !target.adminDisabledBy ||
+    !target.adminDisableReason
   );
+}
+
+function GroupDirectory() {
+ const [page,setPage]=useState(1), [search,setSearch]=useState("");
+ const query=useQuery({queryKey:["community-group-directory",page,search],queryFn:()=>listAdminGroups({page,limit:20,search:search||undefined})});
+ return <Card title="群聊目录"><Input.Search aria-label="搜索群聊" placeholder="搜索群聊名称或编号" onSearch={value=>{setSearch(value.trim());setPage(1);}}/>
+ {query.isError ? <PageError error={query.error} onRetry={()=>{void query.refetch();}}/> : <Table rowKey="groupId" loading={query.isLoading} dataSource={query.data?.items??[]} pagination={{current:page,pageSize:20,total:query.data?.total??0,onChange:setPage}} columns={[
+ {title:"群聊名称",render:(_,group)=><Link to={`/community/groups/${encodeURIComponent(group.conversationId??group.groupId)}`}>{group.name||"未命名群聊"}</Link>},
+ {title:"成员数",dataIndex:"memberCount"},
+ {title:"关联圈子",render:(_,group)=>group.linkedCircle?.name??"独立群聊"},
+ ]}/>}</Card>;
 }
 
 export function CommunityPage() {
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState("circles");
+  const [showGroups, setShowGroups] = useState(false);
   const [circlePage, setCirclePage] = useState(1);
   const [circleSearch, setCircleSearch] = useState("");
   const [circleStatus, setCircleStatus] = useState<
     CircleAdminState | undefined
   >();
-  const [groupPage, setGroupPage] = useState(1);
-  const [groupSearch, setGroupSearch] = useState("");
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(
     null,
   );
@@ -152,35 +114,15 @@ export function CommunityPage() {
       }),
     refetchInterval: 10_000,
   });
-  const groups = useQuery({
-    queryKey: ["adminCommunity", "groups", groupPage, groupSearch],
-    queryFn: () =>
-      listAdminGroups({ page: groupPage, limit: 20, search: groupSearch }),
-    enabled: activeTab === "groups",
-    refetchInterval: activeTab === "groups" ? 10_000 : false,
-  });
   const pendingActionStale = pendingAction
-    ? isPendingActionStale(
-        pendingAction,
-        circles.data?.items ?? [],
-        groups.data?.items ?? [],
-      )
+    ? isPendingActionStale(pendingAction, circles.data?.items ?? [])
     : false;
 
   const operation = useMutation({
     mutationFn: async (action: PendingAction) => {
-      if (action.kind === "circle") {
-        const fn = action.action === "disable" ? disableCircle : restoreCircle;
-        return fn(
-          action.target.id,
-          reason.trim(),
-          confirmation.trim(),
-          action.idempotencyKey,
-        );
-      }
-      return requestGroupOperation(
-        action.target.groupId,
-        action.action,
+      const fn = action.action === "disable" ? disableCircle : restoreCircle;
+      return fn(
+        action.target.id,
         reason.trim(),
         confirmation.trim(),
         action.idempotencyKey,
@@ -188,7 +130,7 @@ export function CommunityPage() {
     },
     onSuccess: (_result, action) => {
       message.success(
-        action.kind === "circle" && !action.target.groupID
+        !action.target.groupID
           ? "圈子状态已更新"
           : "管理操作已提交，正在同步 OpenIM",
       );
@@ -204,10 +146,7 @@ export function CommunityPage() {
   });
 
   const openAction = (action: PendingActionDraft) => {
-    if (
-      operation.isPending ||
-      (action.kind === "circle" ? circles.isError : groups.isError)
-    ) {
+    if (operation.isPending || circles.isError) {
       return;
     }
     setReason("");
@@ -221,7 +160,7 @@ export function CommunityPage() {
 
   const submitPendingAction = () => {
     if (!pendingAction) return;
-    if (pendingAction.kind === "circle" ? circles.isError : groups.isError) {
+    if (circles.isError) {
       return;
     }
     if (pendingActionStale) return;
@@ -322,7 +261,6 @@ export function CommunityPage() {
             disabled={busy || operation.isPending || circles.isError}
             onClick={() =>
               openAction({
-                kind: "circle",
                 target: circle,
                 action: "restore",
                 expectedConfirmation: circle.name,
@@ -339,7 +277,6 @@ export function CommunityPage() {
             disabled={busy || operation.isPending || circles.isError}
             onClick={() =>
               openAction({
-                kind: "circle",
                 target: circle,
                 action: "disable",
                 expectedConfirmation: circle.name,
@@ -353,150 +290,12 @@ export function CommunityPage() {
     },
   ];
 
-  const groupColumns: ColumnsType<AdminOpenimGroup> = [
-    {
-      title: "群聊",
-      render: (_, group) => (
-        <Space orientation="vertical" size={0}>
-          <Link
-            to={`/community/groups/${encodeURIComponent(group.conversationId ?? group.groupId)}`}
-          >
-            <Typography.Text strong>
-              {group.name || "未命名群聊"}
-            </Typography.Text>
-          </Link>
-          {group.linkedCircle ? (
-            <Link
-              to={`/community/circles/${encodeURIComponent(group.linkedCircle.id)}`}
-            >
-              <Tag color="purple">圈子群：{group.linkedCircle.name}</Tag>
-            </Link>
-          ) : (
-            <Tag>普通群</Tag>
-          )}
-        </Space>
-      ),
-    },
-    {
-      title: "群主",
-      render: (_, group) =>
-        group.ownerName || (
-          <Identifier value={group.ownerUserId} label="群主" />
-        ),
-    },
-    { title: "成员", dataIndex: "memberCount", width: 90 },
-    {
-      title: "状态",
-      width: 150,
-      render: (_, group) => {
-        const manageable = isManageableGroupStatus(group.status);
-        return (
-          <Space orientation="vertical" size={2}>
-            <Tag color={!manageable ? "red" : group.muted ? "orange" : "green"}>
-              {!manageable
-                ? "已解散/不可用"
-                : group.muted
-                  ? "全员禁言"
-                  : "正常"}
-            </Tag>
-            {group.pendingOperation &&
-            ["PENDING", "PROCESSING"].includes(
-              group.pendingOperation.status,
-            ) ? (
-              <Tag color="processing">
-                {operationLabel(group.pendingOperation.type)}处理中
-              </Tag>
-            ) : null}
-            {group.pendingOperation?.status === "FAILED" ? (
-              <Typography.Text type="danger">
-                {group.pendingOperation.lastError || "操作失败"}
-              </Typography.Text>
-            ) : null}
-          </Space>
-        );
-      },
-    },
-    {
-      title: "操作",
-      width: 240,
-      render: (_, group) => {
-        if (group.managementSupported === false)
-          return (
-            <Link
-              to={`/community/groups/${encodeURIComponent(group.conversationId ?? group.groupId)}`}
-            >
-              查看详情与成员
-            </Link>
-          );
-        const manageable = isManageableGroupStatus(group.status);
-        const busy =
-          group.pendingOperation &&
-          ["PENDING", "PROCESSING"].includes(group.pendingOperation.status);
-        const muteAction: AdminGroupOperationType = group.muted
-          ? "UNMUTE"
-          : "MUTE";
-        return (
-          <Space>
-            <Button
-              disabled={
-                !manageable ||
-                Boolean(busy) ||
-                Boolean(group.linkedCircle) ||
-                operation.isPending ||
-                groups.isError
-              }
-              aria-label={`${operationLabel(muteAction)} ${group.name}`}
-              onClick={() =>
-                openAction({
-                  kind: "group",
-                  target: group,
-                  action: muteAction,
-                  expectedConfirmation: group.groupId,
-                })
-              }
-            >
-              {operationLabel(muteAction)}
-            </Button>
-            <Button
-              danger
-              disabled={
-                !manageable ||
-                Boolean(busy) ||
-                operation.isPending ||
-                groups.isError
-              }
-              aria-label={`解散 ${group.name}`}
-              onClick={() =>
-                openAction({
-                  kind: "group",
-                  target: group,
-                  action: "DISMISS",
-                  expectedConfirmation: group.groupId,
-                })
-              }
-            >
-              解散
-            </Button>
-          </Space>
-        );
-      },
-    },
-  ];
-
   const modalTitle = pendingAction
-    ? pendingAction.kind === "circle"
-      ? pendingAction.action === "disable"
-        ? "停用圈子"
-        : "恢复圈子"
-      : operationLabel(pendingAction.action)
+    ? pendingAction.action === "disable"
+      ? "停用圈子"
+      : "恢复圈子"
     : "";
-  const destructive =
-    pendingAction?.kind === "group" && pendingAction.action === "DISMISS";
-  const pendingActionQueryError = pendingAction
-    ? pendingAction.kind === "circle"
-      ? circles.isError
-      : groups.isError
-    : false;
+  const pendingActionQueryError = Boolean(pendingAction) && circles.isError;
   const canSubmit =
     !pendingActionQueryError &&
     !pendingActionStale &&
@@ -506,125 +305,76 @@ export function CommunityPage() {
   return (
     <Space orientation="vertical" size={16} className="page-stack">
       <div>
-        <Typography.Title level={3}>圈子与群聊管理</Typography.Title>
-        <Typography.Text type="secondary">
-          查看圈子与群聊完整资料、成员和管理状态
-        </Typography.Text>
+        <PageHeader title="圈子管理" description="查看圈子资料、成员与动态，处理停用和恢复。" />
       </div>
 
+      <Button onClick={()=>setShowGroups(value=>!value)}>{showGroups ? "收起群聊目录" : "查找和管理独立群聊"}</Button>
+      {showGroups && <GroupDirectory/>}
       <Alert
         type="warning"
         showIcon
-        title="解散群聊不可恢复。所有操作都需要填写原因、输入确认文字，并记录管理员审计日志。"
+        title="停用或恢复圈子需要填写原因、输入确认文字，并记录管理员审计日志。"
       />
 
-      <Tabs
-        activeKey={activeTab}
-        onChange={setActiveTab}
-        items={[
-          {
-            key: "circles",
-            label: "圈子管理",
-            children: (
-              <Space orientation="vertical" size={12} className="page-stack">
-                <Space wrap>
-                  <Input.Search
-                    allowClear
-                    placeholder="搜索圈子名、ID、群 ID 或创建者"
-                    onSearch={(value) => {
-                      setCircleSearch(value.trim());
-                      setCirclePage(1);
-                    }}
-                  />
-                  <Select
-                    allowClear
-                    placeholder="全部状态"
-                    style={{ width: 180 }}
-                    value={circleStatus}
-                    onChange={(value) => {
-                      setCircleStatus(value);
-                      setCirclePage(1);
-                    }}
-                    options={Object.entries(CIRCLE_STATE).map(
-                      ([value, state]) => ({
-                        value,
-                        label: state.label,
-                      }),
-                    )}
-                  />
-                </Space>
-                {circles.isError ? (
-                  <PageError
-                    error={circles.error}
-                    onRetry={() => circles.refetch()}
-                    message="圈子列表加载失败"
-                  />
-                ) : null}
-                <Table
-                  rowKey="id"
-                  columns={circleColumns}
-                  dataSource={circles.data?.items ?? []}
-                  loading={circles.isLoading}
-                  pagination={{
-                    current: circlePage,
-                    pageSize: 20,
-                    total: circles.data?.total ?? 0,
-                    showSizeChanger: false,
-                    onChange: setCirclePage,
-                  }}
-                />
-              </Space>
-            ),
-          },
-          {
-            key: "groups",
-            label: "全部群聊",
-            children: (
-              <Space orientation="vertical" size={12} className="page-stack">
-                <Input.Search
-                  allowClear
-                  placeholder="搜索群名称或群 ID"
-                  onSearch={(value) => {
-                    setGroupSearch(value.trim());
-                    setGroupPage(1);
-                  }}
-                />
-                {groups.isError ? (
-                  <PageError
-                    error={groups.error}
-                    onRetry={() => groups.refetch()}
-                    message="OpenIM 群聊列表加载失败"
-                  />
-                ) : null}
-                <Table
-                  rowKey="groupId"
-                  columns={groupColumns}
-                  dataSource={groups.data?.items ?? []}
-                  loading={groups.isLoading}
-                  pagination={{
-                    current: groupPage,
-                    pageSize: 20,
-                    total: groups.data?.total ?? 0,
-                    showSizeChanger: false,
-                    onChange: setGroupPage,
-                  }}
-                />
-              </Space>
-            ),
-          },
-        ]}
-      />
+      <Space orientation="vertical" size={12} className="page-stack">
+        <Space wrap className="page-toolbar">
+          <Input.Search
+            allowClear
+            placeholder="搜索圈子名、ID、群 ID 或创建者"
+            onSearch={(value) => {
+              setCircleSearch(value.trim());
+              setCirclePage(1);
+            }}
+          />
+          <Select
+            allowClear
+            placeholder="全部状态"
+            style={{ width: 180 }}
+            value={circleStatus}
+            onChange={(value) => {
+              setCircleStatus(value);
+              setCirclePage(1);
+            }}
+            options={Object.entries(CIRCLE_STATE).map(
+              ([value, state]) => ({
+                value,
+                label: state.label,
+              }),
+            )}
+          />
+        </Space>
+        {circles.isError ? (
+          <PageError
+            error={circles.error}
+            onRetry={() => circles.refetch()}
+            message="圈子列表加载失败"
+          />
+        ) : null}
+        <Table
+          rowKey="id"
+          columns={circleColumns}
+          dataSource={circles.data?.items ?? []}
+          loading={circles.isLoading}
+          pagination={{
+            current: circlePage,
+            pageSize: 20,
+            total: circles.data?.total ?? 0,
+            showSizeChanger: false,
+            onChange: setCirclePage,
+          }}
+        />
+      </Space>
 
       <Modal
         title={
           <Space>
-            {destructive ? <ExclamationCircleOutlined /> : <MessageOutlined />}
+            <MessageOutlined />
             {modalTitle}
           </Space>
         }
         open={Boolean(pendingAction)}
         okText="确认提交"
-        okButtonProps={{ danger: destructive, disabled: !canSubmit }}
+        okButtonProps={{ disabled: !canSubmit }}
         confirmLoading={operation.isPending}
         onOk={submitPendingAction}
         onCancel={() => {
@@ -632,9 +382,6 @@ export function CommunityPage() {
         }}
       >
         <Space orientation="vertical" size={12} className="page-stack">
-          {destructive ? (
-            <Alert type="error" showIcon title="群聊解散后无法恢复" />
-          ) : null}
           {pendingActionQueryError ? (
             <Alert
               type="error"

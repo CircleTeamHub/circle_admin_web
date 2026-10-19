@@ -1,3 +1,4 @@
+import { ReloadOutlined } from "@ant-design/icons";
 import { Identifier, CodeValue } from "../components/ReadableValue";
 import { displayLabel } from "../utils/display";
 import {
@@ -5,12 +6,13 @@ import {
   nextTaskAttempt,
   taskResult,
 } from "./task-presentation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Alert,
   Button,
   Card,
+  Descriptions,
   Input,
   Select,
   Space,
@@ -20,7 +22,6 @@ import {
 } from "antd";
 import { Link } from "react-router-dom";
 import { consoleApi, type Push } from "../api/console";
-import { listUsers } from "../api/users";
 import { useAdminAccess } from "../auth/admin-access";
 import { PageError } from "../components/PageError";
 import { formatDateTime } from "../utils/format";
@@ -31,231 +32,94 @@ import {
   useConsoleFilters,
 } from "./console-shared";
 
-function RecipientPicker({
-  value,
-  onChange,
-}: {
-  value: string[];
-  onChange: (value: string[]) => void;
-}) {
-  const [keyword, setKeyword] = useState("");
-  const users = useQuery({
-    queryKey: ["console", "recipient-search", keyword],
-    queryFn: () => listUsers({ keyword, page: 1, limit: 20 }),
-    enabled: keyword.length >= 2,
-  });
-  return (
-    <Select
-      mode="multiple"
-      aria-label="收件人"
-      showSearch
-      filterOption={false}
-      placeholder="输入账号或昵称搜索收件人"
-      searchValue={keyword}
-      onSearch={setKeyword}
-      value={value}
-      onChange={onChange}
-      maxCount={100}
-      style={{ minWidth: 360 }}
-      options={users.data?.items.map((u) => ({
-        value: u.id,
-        label: `${u.nickname || u.accountId} · ${u.accountId}`,
-      }))}
-      loading={users.isFetching}
-    />
-  );
-}
 export function PushOperationsPage() {
   const { search, set } = useConsoleFilters(),
     { hasPermission } = useAdminAccess();
-  const overview = useQuery({
-    queryKey: ["console", "push-overview"],
-    queryFn: consoleApi.pushOverview,
-    refetchInterval: 15000,
-  });
   const rows = useQuery({
     queryKey: ["console", "push", search.toString()],
     queryFn: () => consoleApi.pushes(search),
     refetchInterval: 15000,
   });
-  const announcements = useQuery({
-    queryKey: ["console", "announcements"],
-    queryFn: consoleApi.announcements,
-    enabled: hasPermission("CONTENT_MANAGE"),
-  });
-  const [recipients, setRecipients] = useState<string[]>([]),
-    [announcement, setAnnouncement] = useState<string>();
   const userID = search.get("userID");
   const taskID = search.get("taskID");
+  const [expandedKeys, setExpandedKeys] = useState<React.Key[]>(taskID ? [taskID] : []);
+  useEffect(() => setExpandedKeys(taskID ? [taskID] : []), [taskID]);
+  const clearFilters = () => set({ userID: undefined, deviceID: undefined, taskID: undefined, status: undefined, cursor: undefined });
+  const hasFilters = Boolean(userID || taskID || search.get("deviceID") || search.get("status") || search.get("cursor"));
+  const statusColor = (status: string) => ({ PENDING: "gold", PROCESSING: "blue", COMPLETED: "green", FAILED: "red", TERMINAL: "default", SENT: "cyan", CONFIRMED: "green" }[status] ?? "default");
   const devices = useQuery({
     queryKey: ["console", "push-devices", userID],
     queryFn: () => consoleApi.devices(userID!),
     enabled: !!userID,
   });
   const columns = [
-    { title: "时间", dataIndex: "createdAt", render: formatDateTime },
     {
-      title: "收件人",
-      render: (_: unknown, r: Push) =>
-        r.notification.toUserID ? (
-          <Space orientation="vertical" size={0}>
-            <Link to={`/users/${encodeURIComponent(r.notification.toUserID)}`}>
-              {r.notification.toUser?.nickname || "查看用户"}
-            </Link>
-            <Identifier value={r.notification.toUserID} label="用户" />
-          </Space>
-        ) : (
-          "—"
-        ),
+      title: "通知", width: 210,
+      render: (_: unknown, row: Push) => (
+        <Space orientation="vertical" size={4}>
+          <Typography.Text strong>{notificationLabel(row.notification.type)}</Typography.Text>
+          <Typography.Text type="secondary">{formatDateTime(row.createdAt)}</Typography.Text>
+        </Space>
+      ),
     },
     {
-      title: "状态",
-      dataIndex: "status",
-      render: (s: string) => <Tag>{STATUS[s] ?? "未知状态"}</Tag>,
+      title: "收件人", width: 170,
+      render: (_: unknown, row: Push) => row.notification.toUserID ? (
+        hasPermission("USER_READ") ? (
+          <Link to={`/users/${encodeURIComponent(row.notification.toUserID)}`}>
+            {row.notification.toUser?.nickname || "查看用户"}
+          </Link>
+        ) : <Typography.Text>{row.notification.toUser?.nickname || "通知收件人"}</Typography.Text>
+      ) : "—",
     },
+    { title: "状态", width: 100, dataIndex: "status", render: (status: string) => <Tag color={statusColor(status)}>{STATUS[status] ?? "未知状态"}</Tag> },
+    { title: "处理结果", width: 280, render: (_: unknown, row: Push) => taskResult(row) },
     {
-      title: "通知类型",
-      render: (_: unknown, r: Push) => notificationLabel(r.notification.type),
-    },
-    { title: "处理结果", render: (_: unknown, r: Push) => taskResult(r) },
-    { title: "次数", dataIndex: "attempts" },
-    {
-      title: "错误类别",
-      dataIndex: "lastError",
-      render: (v: string | null) =>
-        v ? <CodeValue domain="error" value={v} /> : "—",
-    },
-    {
-      title: "下次尝试",
-      render: (_: unknown, r: Push) =>
-        nextTaskAttempt(r) ? formatDateTime(nextTaskAttempt(r)) : "—",
-    },
-    {
-      title: "操作",
-      render: (_: unknown, r: Push) =>
-        r.status === "FAILED" && r.retryable === true ? (
-          <ReasonAction
-            title="重试失败设备"
-            path={`/admin/console/push/${r.id}/retry`}
-            payload={{ version: r.updatedAt }}
-          />
-        ) : (
-          "—"
-        ),
+      title: "操作", width: 190,
+      render: (_: unknown, row: Push) => (
+        <Space wrap size={[8, 8]}>
+          <Button type="link" onClick={() => setExpandedKeys((keys) => keys.includes(row.id) ? keys.filter((key) => key !== row.id) : [...keys, row.id])}>
+            {expandedKeys.includes(row.id) ? "收起详情" : "查看投递详情"}
+          </Button>
+          {row.status === "FAILED" && row.retryable === true && <ReasonAction title="重试失败设备" path={`/admin/console/push/${row.id}/retry`} payload={{ version: row.updatedAt }} />}
+        </Space>
+      ),
     },
   ];
   return (
-    <Space orientation="vertical" className="page-stack" size={16}>
-      <Typography.Title level={3}>通知管理</Typography.Title>
-      {[overview, rows].map((q, i) =>
-        q.isError ? (
-          <PageError key={i} error={q.error} onRetry={() => void q.refetch()} />
-        ) : null,
-      )}
-      <Card title="投递渠道与开关" loading={overview.isPending}>
-        <Space wrap>
-          {overview.data?.providers.map((p) => (
-            <Tag key={p.name} color={p.configured ? "green" : "orange"}>
-              {displayLabel("provider", p.name)}：
-              {p.configured ? "已配置" : "未配置"}
-            </Tag>
-          ))}
-          <Tag color={overview.data?.settings.enabled ? "green" : "orange"}>
-            全局推送{overview.data?.settings.enabled ? "开启" : "暂停"}
-          </Tag>
-          {overview.data && hasPermission("CONTENT_MANAGE") && (
-            <ReasonAction
-              title={overview.data.settings.enabled ? "暂停推送" : "恢复推送"}
-              path="/admin/console/push/settings"
-              method="PATCH"
-              payload={{
-                enabled: !overview.data.settings.enabled,
-                version: overview.data.settings.version,
-              }}
-              danger={overview.data.settings.enabled}
-              confirmText={
-                overview.data.settings.enabled ? "暂停推送" : undefined
-              }
-            />
-          )}
-        </Space>
-        <Typography.Paragraph type="secondary">
-          “渠道已接受”表示推送服务已接收发送请求；“回执已记录”表示系统已记录渠道确认或超时处理结果，都不代表用户已收到或已读。暂停后，正在发送的请求可能继续完成，待处理任务会保留。
-        </Typography.Paragraph>
-        <Space wrap>
-          {overview.data?.counts.map((s) => (
-            <Tag key={s.status}>
-              {STATUS[s.status] ?? "未知状态"}：{s._count}
-            </Tag>
-          ))}
-        </Space>
-      </Card>
-      {hasPermission("CONTENT_MANAGE") && (
-        <Card title="定向公告推送">
-          <Space wrap>
-            <RecipientPicker value={recipients} onChange={setRecipients} />
-            <Select
-              aria-label="已发布公告"
-              placeholder="选择已发布公告"
-              value={announcement}
-              onChange={setAnnouncement}
-              style={{ width: 320 }}
-              options={announcements.data?.items.map((a) => ({
-                value: a.id,
-                label: a.content.slice(0, 80),
-              }))}
-            />
-            {recipients.length > 0 && announcement && (
-              <ReasonAction
-                title="发送定向公告"
-                path="/admin/console/push/send"
-                payload={{ recipients, announcementID: announcement }}
-                confirmText="发送公告"
-                onDone={() => {
-                  setRecipients([]);
-                  setAnnouncement(undefined);
-                }}
-              />
-            )}
-          </Space>
-          <Alert
-            style={{ marginTop: 12 }}
-            type="info"
-            title="同一公告对同一收件人只创建一次通知；失败重试保留同一操作标识。发送内容为选中的已发布公告。"
-          />
-          {announcements.isError && <PageError error={announcements.error} />}
-        </Card>
-      )}
-      <Card title={taskID ? "推送详情" : "投递记录"}>
+    <Space orientation="vertical" className="page-stack push-operations" size={20}>
+      <div className="push-page-heading">
+        <div>
+          <Typography.Title level={3} style={{ margin: 0 }}>通知管理</Typography.Title>
+          <Typography.Paragraph type="secondary" style={{ margin: "8px 0 0" }}>查看通知发给了谁、发送是否成功，以及失败原因。</Typography.Paragraph>
+        </div>
+        <Typography.Text type="secondary">每 15 秒自动刷新</Typography.Text>
+      </div>
+      {rows.isError && <PageError error={rows.error} onRetry={() => void rows.refetch()} message="发送记录加载失败" />}
+      <Card title={taskID ? "发送详情" : "发送记录"}>
         {taskID && (
           <Alert
             type="info"
             showIcon
             style={{ marginBottom: 16 }}
-            title="已定位任务中心选择的通知任务，下面展开显示设备投递明细。"
+            title="已找到你在任务中心选择的通知，发送详情已在下方展开。"
             action={
               <Button
-                onClick={() =>
-                  set({
-                    taskID: undefined,
-                    cursor: undefined,
-                    userID: undefined,
-                    deviceID: undefined,
-                    status: undefined,
-                  })
-                }
+                onClick={clearFilters}
               >
                 查看全部推送
               </Button>
             }
           />
         )}
-        <Space wrap style={{ marginBottom: 16 }}>
+        <div className="push-record-filters">
           <Input.Search
             aria-label="筛选用户编号"
             key={userID ?? ""}
             defaultValue={userID ?? ""}
-            placeholder="用户编号（可从用户详情跳转）"
+            placeholder="输入用户编号筛选"
+            allowClear
+            className="push-user-filter"
             onSearch={(value) =>
               set({
                 userID: value.trim() || undefined,
@@ -293,8 +157,12 @@ export function PushOperationsPage() {
               }))}
             />
           )}
-          <Button onClick={() => void rows.refetch()}>刷新</Button>
-        </Space>
+          <Space wrap>
+            <Button icon={<ReloadOutlined />} loading={rows.isFetching} onClick={() => void rows.refetch()}>刷新记录</Button>
+            {hasFilters && <Button onClick={clearFilters}>清空筛选</Button>}
+          </Space>
+        </div>
+        {userID && devices.isError && <PageError error={devices.error} onRetry={() => void devices.refetch()} message="设备筛选加载失败" />}
         <Table
           key={taskID ?? "all-pushes"}
           locale={{
@@ -307,15 +175,23 @@ export function PushOperationsPage() {
           dataSource={rows.data?.items}
           columns={columns}
           pagination={false}
-          scroll={{ x: 1100 }}
+          scroll={{ x: 950 }}
           expandable={{
-            defaultExpandedRowKeys: taskID ? [taskID] : [],
+            expandedRowKeys: expandedKeys,
+            onExpandedRowsChange: (keys) => setExpandedKeys([...keys]),
             expandedRowRender: (r) => (
+              <Space orientation="vertical" size={16} className="page-stack">
+                <Descriptions size="small" column={{ xs: 1, md: 3 }} items={[
+                  { key: "attempts", label: "尝试次数", children: r.attempts },
+                  { key: "error", label: "错误类别", children: r.lastError ? <CodeValue domain="error" value={r.lastError} /> : "无" },
+                  { key: "next", label: "下次尝试", children: nextTaskAttempt(r) ? formatDateTime(nextTaskAttempt(r)) : "暂无重试安排" },
+                ]} />
               <Table
                 rowKey="id"
+                scroll={{ x: 1050 }}
                 dataSource={r.deliveries}
                 locale={{
-                  emptyText: "未找到设备投递明细，请结合上方处理结果判断。",
+                  emptyText: "暂无设备发送记录，请查看这条通知的处理结果。",
                 }}
                 pagination={false}
                 columns={[
@@ -368,10 +244,13 @@ export function PushOperationsPage() {
                   },
                 ]}
               />
+              </Space>
             ),
           }}
         />
+        <div className="push-record-footer"><Typography.Text type="secondary">本页 {rows.data?.items.length ?? 0} 条记录</Typography.Text>
         <Pager nextCursor={rows.data?.nextCursor} />
+        </div>
       </Card>
       {userID && (
         <Card title="该用户登记的推送设备">

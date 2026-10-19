@@ -1,3 +1,4 @@
+import { PageHeader } from "../components/PageHeader";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Alert,
@@ -90,8 +91,8 @@ export function AnnouncementsPage() {
     },
   });
   return (
-    <Space direction="vertical" className="page-stack" size={16}>
-      <Typography.Title level={3}>系统公告</Typography.Title>
+    <Space orientation="vertical" className="page-stack" size={16}>
+      <PageHeader title="系统公告" description="发布前先预览内容；已发布的公告可在下方查看。" />
       <Typography.Paragraph>
         公告发送给活跃用户。返回数量表示创建的站内通知数量。
       </Typography.Paragraph>

@@ -148,7 +148,7 @@ export function toLocalDateTimeInput(value: Date | string): string {
   return local.toISOString().slice(0, 16);
 }
 
-export function SupportRechargePage() {
+export function SupportRechargePage({ embedded = false }: { embedded?: boolean }) {
   const queryClient = useQueryClient();
   const [codeForm] = Form.useForm<PaymentCodeForm>();
   const [approvalForm] = Form.useForm<ApprovalForm>();
@@ -422,7 +422,7 @@ export function SupportRechargePage() {
   return (
     <Space orientation="vertical" size="large" style={{ width: "100%" }}>
       <div>
-        <Typography.Title level={2}>充值客服</Typography.Title>
+        {!embedded && <Typography.Title level={2}>充值客服</Typography.Title>}
         <Typography.Paragraph type="secondary">
           自动客服只负责发送当前收款码并收集付款截图。付款真实性必须由管理员核对，确认后才会发放积分或开通会员。
         </Typography.Paragraph>

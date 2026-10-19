@@ -1,3 +1,4 @@
+import { PageHeader } from "../components/PageHeader";
 import { displayLabel } from "../utils/display";
 import { useQuery } from "@tanstack/react-query";
 import { Button, Card, Descriptions, Space, Tag, Typography } from "antd";
@@ -21,7 +22,7 @@ export function SystemStatusPage() {
   return (
     <Space orientation="vertical" size={16} className="page-stack">
       <Space className="page-title-row">
-        <Typography.Title level={3}>系统状态</Typography.Title>
+        <PageHeader title="系统状态" description="检查后台服务与依赖是否正常，遇到异常时查看监控。" />
         <Button loading={query.isFetching} onClick={() => void query.refetch()}>
           刷新
         </Button>

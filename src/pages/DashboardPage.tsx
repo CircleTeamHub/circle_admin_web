@@ -1,3 +1,4 @@
+import { PageHeader } from "../components/PageHeader";
 import { DashboardGrowthPanel } from "./DashboardGrowthPanel";
 import { displayLabel } from "../utils/display";
 import {
@@ -115,7 +116,7 @@ export function DashboardPage() {
   const activeKey = search.get("tab") === "growth" ? "growth" : "overview";
   return (
     <Space orientation="vertical" className="page-stack" size={16}>
-      <Typography.Title level={3}>数据看板</Typography.Title>
+      <PageHeader title="数据看板" />
       <Typography.Paragraph type="secondary">
         统一查看用户、圈子、会员和积分数据。运营概览看整体情况，用户使用情况看新用户做了什么、之后有没有回来使用。
       </Typography.Paragraph>

@@ -1,9 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, expect, it, vi } from "vitest";
 import {
   getAdminGroup,
+  listAdminGroups,
+  requestGroupOperation,
   getAdminGroupMembers,
   getAdminGroupEvents,
   type AdminGroupDetail,
@@ -12,6 +14,8 @@ import { AdminAccessContext, type AdminPermission } from "../auth/admin-access";
 import { GroupDetailPage, groupEventDescription } from "./GroupDetailPage";
 vi.mock("../api/community", () => ({
   getAdminGroup: vi.fn(),
+  listAdminGroups: vi.fn(),
+  requestGroupOperation: vi.fn(),
   getAdminGroupMembers: vi.fn(),
   getAdminGroupEvents: vi.fn(),
 }));
@@ -49,6 +53,7 @@ const group: AdminGroupDetail = {
 };
 function show(
   permissions: AdminPermission[] = ["COMMUNITY_MANAGE", "USER_READ", "IM_READ"],
+  initialEntry = "/community/groups/group-id",
 ) {
   render(
     <AdminAccessContext.Provider
@@ -59,7 +64,7 @@ function show(
           new QueryClient({ defaultOptions: { queries: { retry: false } } })
         }
       >
-        <MemoryRouter initialEntries={["/community/groups/group-id"]}>
+        <MemoryRouter initialEntries={[initialEntry]}>
           <Routes>
             <Route
               path="/community/groups/:conversationId"
@@ -73,6 +78,7 @@ function show(
 }
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(listAdminGroups).mockResolvedValue({ items: [], total: 0, page: 1, limit: 20 });
   vi.mocked(getAdminGroup).mockResolvedValue(group);
   vi.mocked(getAdminGroupMembers).mockResolvedValue({
     items: [
@@ -171,4 +177,73 @@ it("does not present unknown group event codes as success", () => {
       createdAt: group.createdAt,
     }),
   ).toBe("修改群权限：扫码加入（已关闭）");
+});
+
+it("returns group details to the conversation list", async () => {
+  show();
+  expect(await screen.findByRole("link", { name: "返回会话与聊天记录" })).toHaveAttribute("href", "/im?type=GROUP");
+});
+
+it("opens the member list directly from the conversation count link", async () => {
+  show(undefined, "/community/groups/group-id?tab=members");
+  expect(await screen.findByText("老朋友")).toBeVisible();
+  expect(screen.getByRole("tab", { name: "群成员" })).toHaveAttribute("aria-selected", "true");
+  expect(getAdminGroupMembers).toHaveBeenCalledWith("group-id", 1);
+});
+
+it("falls back to group profile for a history deep link without IM_READ", async () => {
+  show(["COMMUNITY_MANAGE"], "/community/groups/group-id?tab=history");
+  expect(await screen.findByText("讨论摄影作品")).toBeVisible();
+  expect(screen.getByRole("tab", { name: "群聊详情" })).toHaveAttribute("aria-selected", "true");
+  expect(screen.queryByRole("tab", { name: "聊天记录" })).toBeNull();
+});
+const manageable = (overrides = {}) => ({
+  groupId: "operation-group-id", conversationId: "group-id", name: "朋友群", faceUrl: null, status: 0,
+  muted: false, memberCount: 25, ownerUserId: null, ownerName: null, linkedCircle: null,
+  pendingOperation: null, managementSupported: true, ...overrides,
+});
+function management(overrides = {}) {
+  vi.mocked(listAdminGroups).mockResolvedValue({ items: [manageable(overrides)], total: 1, page: 1, limit: 20 });
+}
+it("restores audited dismissal for circle-linked groups and preserves the operation ID on retry", async () => {
+  management({ linkedCircle: { id: "circle-id", name: "圈子" } });
+  vi.mocked(requestGroupOperation).mockRejectedValueOnce(new Error("网络异常")).mockResolvedValueOnce({});
+  show();
+  fireEvent.click(await screen.findByRole("button", { name: "永久解散群聊" }));
+  const dialog = screen.getByRole("dialog");
+  expect(screen.queryByRole("button", { name: "全员禁言" })).toBeNull();
+  expect(within(dialog).getByRole("button", { name: "确认提交" })).toBeDisabled();
+  fireEvent.change(within(dialog).getByLabelText("群管理操作原因"), { target: { value: "违规处理" } });
+  fireEvent.change(within(dialog).getByLabelText("确认群编号"), { target: { value: "operation-group-id" } });
+  fireEvent.click(within(dialog).getByRole("button", { name: "确认提交" }));
+  await screen.findByText("网络异常");
+  fireEvent.click(within(dialog).getByRole("button", { name: "确认提交" }));
+  await waitFor(() => expect(requestGroupOperation).toHaveBeenCalledTimes(2));
+  expect(vi.mocked(requestGroupOperation).mock.calls[0]).toEqual(["operation-group-id", "DISMISS", "违规处理", "operation-group-id", expect.any(String)]);
+  expect(vi.mocked(requestGroupOperation).mock.calls[1]).toEqual(vi.mocked(requestGroupOperation).mock.calls[0]);
+});
+it.each([[false, "全员禁言", "MUTE"], [true, "解除全员禁言", "UNMUTE"]] as const)("restores supported group mute operations (%s)", async (muted, label, type) => {
+  management({ muted });
+  vi.mocked(requestGroupOperation).mockResolvedValue({});
+  show();
+  fireEvent.click(await screen.findByRole("button", { name: label }));
+  const dialog = screen.getByRole("dialog");
+  fireEvent.change(within(dialog).getByLabelText("群管理操作原因"), { target: { value: "违规处理" } });
+  fireEvent.change(within(dialog).getByLabelText("确认群编号"), { target: { value: "operation-group-id" } });
+  fireEvent.click(within(dialog).getByRole("button", { name: "确认提交" }));
+  await waitFor(() => expect(requestGroupOperation).toHaveBeenCalledWith("operation-group-id", type, "违规处理", "operation-group-id", expect.any(String)));
+});
+it("blocks duplicate moderation while the backend operation is processing", async () => {
+  management({ pendingOperation: { id: "op1", type: "MUTE", status: "PROCESSING", lastError: null } });
+  show();
+  expect(await screen.findByRole("button", { name: "全员禁言" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "永久解散群聊" })).toBeDisabled();
+  expect(requestGroupOperation).not.toHaveBeenCalled();
+});
+it("does not offer moderation for groups marked unsupported by the backend", async () => {
+  management({ managementSupported: false });
+  show();
+  await screen.findByText("讨论摄影作品");
+  await waitFor(() => expect(listAdminGroups).toHaveBeenCalled());
+  expect(screen.queryByRole("button", { name: "永久解散群聊" })).toBeNull();
 });

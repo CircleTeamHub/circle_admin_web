@@ -1,3 +1,4 @@
+import { PageHeader } from "../components/PageHeader";
 import { displayLabel } from "../utils/display";
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -57,8 +58,8 @@ export function ApiKeysPage() {
   });
   return (
     <Space orientation="vertical" className="page-stack" size={16}>
-      <Space>
-        <Typography.Title level={3}>自动化管理员密钥</Typography.Title>
+      <Space wrap className="page-title-row">
+        <PageHeader title="自动化管理员密钥" description="为自动化工具创建只读密钥，按需设置范围并及时撤销。" />
         <Button
           type="primary"
           onClick={() => {

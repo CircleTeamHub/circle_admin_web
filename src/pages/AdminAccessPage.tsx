@@ -1,3 +1,4 @@
+import { PageHeader } from "../components/PageHeader";
 import { useAdminAccountAvailability } from "../components/useAdminAccountAvailability";
 import { DeleteAdminAccountButton } from "../components/DeleteAdminAccountButton";
 import { clearSession, getSessionEpoch } from "../auth/session";
@@ -100,7 +101,7 @@ export function AdminAccessPage() {
   }
   return (
     <Space orientation="vertical" style={{ width: "100%" }}>
-      <Space style={{width:"100%",justifyContent:"space-between"}} wrap><Typography.Title level={3}>管理员权限</Typography.Title>{access.data?.role === "SUPER_ADMIN" && <CreateAdminButton onCreated={()=>{void list.refetch();}}/>}</Space>
+      <Space className="page-title-row" wrap><PageHeader title="管理员权限" description="管理后台账号与权限，按工作需要分配可访问的功能。" />{access.data?.role === "SUPER_ADMIN" && <CreateAdminButton onCreated={()=>{void list.refetch();}}/>}</Space>
       <Alert
         type="info"
         message={abilities}

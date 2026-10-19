@@ -200,3 +200,15 @@ it("shows complete post content, media and historical status with separate post 
     expect(getAdminCirclePosts).toHaveBeenCalledWith(detail.id, 2),
   );
 });
+
+it("links the actual associated group and omits the entry when no group exists", async () => {
+  const view = renderPage();
+  expect(await screen.findByRole("link", { name: "查看关联群聊" })).toHaveAttribute(
+    "href", "/community/groups/chat-identifier",
+  );
+  view.unmount();
+  vi.mocked(getAdminCircle).mockResolvedValue({ ...detail, associatedGroup: null });
+  renderPage();
+  await screen.findByText("尚未建立群聊");
+  expect(screen.queryByRole("link", { name: "查看关联群聊" })).not.toBeInTheDocument();
+});
