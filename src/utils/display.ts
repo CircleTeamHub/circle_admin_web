@@ -3,8 +3,6 @@ export const DISPLAY_LABELS = {
   event: {
     SESSION_CREATED: "建立登录会话",
     DEVICE_REVOKED: "撤销受信任设备",
-    ENCRYPTION_DEVICE_APPROVED: "批准加密设备",
-    ENCRYPTION_DEVICE_REVOKED: "撤销加密设备",
     WALLET_ACTIVITY: "钱包账本变化",
     ORDER_CREATED: "创建靓号订单",
     RECHARGE_ORDER_CREATED: "创建充值订单",
@@ -110,7 +108,6 @@ export const DISPLAY_LABELS = {
   entity: {
     RefreshToken: "登录会话",
     TrustedDevice: "受信任设备",
-    E2eeDevice: "加密设备",
     CoinTransaction: "积分账本",
     FancyNumberOrder: "靓号订单",
     SupportRechargeOrder: "充值订单",
@@ -145,8 +142,7 @@ export const DISPLAY_LABELS = {
     production: "正式环境",
     test: "测试环境",
   },
-  devicePurpose: {APP:"普通聊天设备",AUDIT:"管理员审计设备"},
-  messageType: {text:"文字消息","encrypted-text":"加密文字",image:"图片消息",voice:"语音消息",video:"视频消息",file:"文件消息",system:"系统消息"},
+  messageType: {text:"文字消息",image:"图片消息",voice:"语音消息",video:"视频消息",file:"文件消息",system:"系统消息"},
   deviceStatus: {
     PENDING: "等待批准",
     APPROVED: "已批准",

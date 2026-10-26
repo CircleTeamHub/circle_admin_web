@@ -154,7 +154,6 @@ export interface CircleGroupDetail {
   id: string;
   name: string | null;
   muteAllAt: string | null;
-  textEncryption: string;
   qrJoinEnabled: boolean;
   cardJoinEnabled: boolean;
   joinApprovalRequired: boolean;

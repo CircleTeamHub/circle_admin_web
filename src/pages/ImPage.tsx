@@ -3,11 +3,6 @@ import { Identifier } from "../components/ReadableValue";
 import { conversationTitle } from "./im-presentation";
 import { formatDateTime } from "../utils/format";
 import { PageError } from "../components/PageError";
-import {
-  AdminEncryption,
-  AdminEncryptedText,
-} from "../components/AdminEncryption";
-import type { EncryptedContent } from "@circle/e2ee/relay-client.mjs";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   Alert,
@@ -245,20 +240,14 @@ function History({
           },
           {
             title: "内容",
-            render: (_, m) =>
-              m.type === "encrypted-text" ? (
-                <AdminEncryptedText
-                  content={m.content as unknown as EncryptedContent}
-                  reason={submitted?.reason ?? ""}
-                />
-              ) : (
-                <AdminMessageContent
-                  key={`${m.id}:${m.mediaExpiresAt ?? "none"}`}
-                  message={m}
-                  renewalPending={request.isPending}
-                  onRenew={() => void run(false, m.height + 1)}
-                />
-              ),
+            render: (_, m) => (
+              <AdminMessageContent
+                key={`${m.id}:${m.mediaExpiresAt ?? "none"}`}
+                message={m}
+                renewalPending={request.isPending}
+                onRenew={() => void run(false, m.height + 1)}
+              />
+            ),
           },
         ]}
       />
@@ -477,11 +466,7 @@ function ImPageContent() {
 }
 
 export function ImPage() {
-  return (
-    <AdminEncryption>
-      <ImPageContent />
-    </AdminEncryption>
-  );
+  return <ImPageContent />;
 }
 
 export function ConversationHistory({
@@ -491,9 +476,5 @@ export function ConversationHistory({
   conversation: ImConversation;
   onClose: () => void;
 }) {
-  return (
-    <AdminEncryption>
-      <History conversation={conversation} onClose={onClose} />
-    </AdminEncryption>
-  );
+  return <History conversation={conversation} onClose={onClose} />;
 }

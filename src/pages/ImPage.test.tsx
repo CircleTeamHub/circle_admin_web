@@ -15,12 +15,6 @@ vi.mock("../auth/admin-access", () => ({
     hasPermission: (permission: string) => permission === "USER_READ" || (permission === "COMMUNITY_MANAGE" && permissions.community) || (permission === "IM_ARCHIVE_READ" && permissions.archive),
   }),
 }));
-vi.mock("../components/AdminEncryption", () => ({
-  AdminEncryption: ({ children }: { children: React.ReactNode }) => (
-    <>{children}</>
-  ),
-  AdminEncryptedText: () => <span>加密文字待解锁</span>,
-}));
 const direct = {
   id: "direct-123456789",
   type: "DIRECT" as const,
@@ -105,9 +99,9 @@ it("opening and closing a conversation never automatically queries messages", as
 });
 
 
-it.each(['text', 'encrypted-text'])('removes an already displayed %s message when its per-message deadline passes', async (type) => {
+it('removes an already displayed message when its per-message deadline passes', async () => {
   vi.mocked(queryImMessages).mockImplementation(async () => ({
-    items: [{ id: 'ephemeral', height: 1, senderId: 'a', type, createdAt: new Date().toISOString(), visibleUntil: new Date(Date.now() + 300).toISOString(), mediaExpiresAt: null, content: { text: 'short lived private text' } }],
+    items: [{ id: 'ephemeral', height: 1, senderId: 'a', type: 'text', createdAt: new Date().toISOString(), visibleUntil: new Date(Date.now() + 300).toISOString(), mediaExpiresAt: null, content: { text: 'short lived private text' } }],
     nextCursor: null,
   }));
   show();
@@ -115,9 +109,24 @@ it.each(['text', 'encrypted-text'])('removes an already displayed %s message whe
   fireEvent.click(within(screen.getByRole('row', { name: /小明 与 小红/ })).getByRole('button', { name: '查看聊天记录' }));
   fireEvent.change(screen.getByLabelText('访问原因'), { target: { value: '核查举报' } });
   fireEvent.click(screen.getByRole('button', { name: '审计并查询' }));
-  const body = type === 'text' ? 'short lived private text' : '加密文字待解锁';
+  const body = 'short lived private text';
   expect(await screen.findByText(body)).toBeTruthy();
   await waitFor(() => expect(screen.queryByText(body)).toBeNull(), { timeout: 2200 });
+});
+
+it('shows a leftover encrypted-text message like any unknown type', async () => {
+  // 文字加密已整体删除:开发库里残留的 encrypted-text 走通用兜底,不解密、不崩、不露信封。
+  vi.mocked(queryImMessages).mockImplementation(async () => ({
+    items: [{ id: 'legacy-encrypted', height: 1, senderId: 'a', type: 'encrypted-text', createdAt: new Date().toISOString(), visibleUntil: null, mediaExpiresAt: null, content: { envelope: { conversationId: direct.id, ciphertext: 'opaque-ciphertext' }, signature: 'sig' } }],
+    nextCursor: null,
+  }));
+  show();
+  await screen.findByText('小明 与 小红');
+  fireEvent.click(within(screen.getByRole('row', { name: /小明 与 小红/ })).getByRole('button', { name: '查看聊天记录' }));
+  fireEvent.change(screen.getByLabelText('访问原因'), { target: { value: '核查举报' } });
+  fireEvent.click(screen.getByRole('button', { name: '审计并查询' }));
+  expect(await screen.findByText(/内容暂时无法展示/)).toBeTruthy();
+  expect(screen.queryByText(/opaque-ciphertext/)).toBeNull();
 });
 
 

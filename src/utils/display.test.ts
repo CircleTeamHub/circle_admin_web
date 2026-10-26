@@ -6,10 +6,8 @@ it("uses domain-specific meanings for shared wire codes", () => {
   expect(displayLabel("reportStatus", "APPROVED")).toBe("举报成立");
   expect(displayLabel("consoleRole", "SUPPORT")).toBe("客服管理员");
 });
-it("covers the actual analytics scope and encrypted device purposes", () => {
+it("covers the actual analytics scope", () => {
   expect(displayLabel("scope", "analytics")).toBe("查看产品洞察");
-  expect(displayLabel("devicePurpose", "AUDIT")).toBe("管理员审计设备");
-  expect(displayLabel("messageType", "encrypted-text")).toBe("加密文字");
 });
 
 it("does not turn unknown or absent values into success", () => {

@@ -385,16 +385,6 @@ export function GroupDetailPage() {
                 : "未开启",
             },
             {
-              key: "encryption",
-              label: "文字加密",
-              children:
-                g.textEncryption === "PLAIN"
-                  ? "未启用端到端加密"
-                  : g.textEncryption === "MLS_V1"
-                    ? "已启用端到端加密"
-                    : "未识别配置",
-            },
-            {
               key: "invite",
               label: "成员邀请入群",
               children: yes(g.memberCanInvite),
