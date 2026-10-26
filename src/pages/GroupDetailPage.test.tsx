@@ -42,7 +42,6 @@ const group: AdminGroupDetail = {
   updatedAt: "2026-10-16T00:00:00Z",
   lastMessageAt: null,
   muteAllAt: null,
-  textEncryption: "MLS_V1",
   memberCanInvite: true,
   qrJoinEnabled: false,
   cardJoinEnabled: true,
@@ -118,7 +117,8 @@ it("shows group metadata and settings with hidden internal IDs and a working use
   show();
   expect(await screen.findByText("讨论摄影作品")).toBeVisible();
   expect(screen.getByText("25 人")).toBeVisible();
-  expect(screen.getByText("已启用端到端加密")).toBeVisible();
+  // 文字加密已整体删除,群设置里不再有这一行。
+  expect(screen.queryByText("文字加密")).toBeNull();
   expect(screen.getByRole("link", { name: "小明" })).toHaveAttribute(
     "href",
     "/users/owner-id",

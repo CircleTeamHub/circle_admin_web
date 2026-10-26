@@ -439,16 +439,6 @@ export function CircleDetailPage() {
                   ? `已开启（${date(g.muteAllAt)}）`
                   : "未开启",
               },
-              {
-                key: "encrypt",
-                label: "文字加密",
-                children:
-                  g.textEncryption === "PLAIN"
-                    ? "未启用端到端加密"
-                    : g.textEncryption === "MLS_V1"
-                      ? "已启用端到端加密"
-                      : "未识别配置",
-              },
               { key: "qr", label: "扫码加入", children: yes(g.qrJoinEnabled) },
               {
                 key: "card",

@@ -53,7 +53,6 @@ const detail: AdminCircleDetail = {
     id: "chat-identifier",
     name: null,
     muteAllAt: null,
-    textEncryption: "MLS_V1",
     qrJoinEnabled: false,
     cardJoinEnabled: true,
     joinApprovalRequired: true,
@@ -114,10 +113,11 @@ it("shows App circle fields, actual group settings, and keeps full identifiers c
     "胶片",
     "200 人",
     "3 人",
-    "已启用端到端加密",
     "仅圈主和管理员可发布",
   ])
     expect(screen.getByText(text)).toBeInTheDocument();
+  // 文字加密已整体删除,群设置里不再有这一行。
+  expect(screen.queryByText("文字加密")).toBeNull();
   expect(screen.queryByText(detail.id)).toBeNull();
   expect(getAdminCircleMembers).not.toHaveBeenCalled();
   expect(getAdminCirclePosts).not.toHaveBeenCalled();

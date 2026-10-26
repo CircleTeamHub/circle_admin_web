@@ -242,9 +242,6 @@ body { color: #172b4d; line-height: 1.6; }
 .app-content .ant-form-item-label { font-weight: 500; }
 .app-content .ant-alert { line-height: 1.7; }
 .app-content .ant-select { max-width: 100%; }
-.encryption-settings { margin-bottom: 20px; background: #fff; border-color: #e5eaf2; }
-.encryption-settings > .ant-collapse-item > .ant-collapse-header { color: #52627a; font-size: 13px; }
-.encryption-settings .ant-space-horizontal { flex-wrap: wrap; }
 .ant-modal { max-width: calc(100vw - 32px); }
 .login-card { border-radius: 16px; box-shadow: 0 16px 48px #172b4d0d; }
 

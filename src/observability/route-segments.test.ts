@@ -15,7 +15,7 @@ const API_DIR = join(process.cwd(), "src", "api");
 const ROUTER_FILE = join(process.cwd(), "src", "app", "App.tsx");
 
 /** community.ts 把动作名插进模板（`/circles/${id}/${action}`），字面量扫描看不到，这里显式登记。 */
-const INTERPOLATED_ACTION_SEGMENTS = ["disable", "restore", "e2ee", "packages", "directory", "rooms", "epochs", "recovery", "recover", "archive", "resolve", "write", "read", "register", "approve", "revoke", "events", "conversations", "devices", "settings", "send", "retry", "release-plans", "withdraw"];
+const INTERPOLATED_ACTION_SEGMENTS = ["disable", "restore", "approve", "revoke", "events", "conversations", "devices", "settings", "send", "retry", "release-plans", "withdraw"];
 
 function addPathSegments(target: Set<string>, template: string): void {
   for (const segment of template.split("?")[0].split("/")) {
