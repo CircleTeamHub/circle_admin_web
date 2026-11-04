@@ -150,12 +150,15 @@ it("clears the targeted task and all filters from the toolbar", async () => {
   await waitFor(() => expect(vi.mocked(consoleApi.pushes).mock.lastCall?.[0].toString()).toBe(""));
 });
 
-it("preserves the failed-delivery retry action with an explicit reason", async () => {
+it("preserves scheduled and manual retries when push records omit retryable", async () => {
   vi.mocked(consoleApi.pushes).mockResolvedValue({ items: [{
-    id: "failed-push", status: "FAILED", retryable: true, attempts: 2, lastError: "NETWORK_ERROR", nextAttemptAt: null,
+    id: "failed-push", status: "FAILED", attempts: 2, lastError: "NETWORK_ERROR", nextAttemptAt: "2026-11-10T12:00:00Z", deliveryCounts: {},
     createdAt: "2026-10-17", updatedAt: "2026-10-18", notification: { toUserID: null, type: "SYSTEM" }, deliveries: [],
   }], nextCursor: null });
   showTarget("failed-push");
+  expect(await screen.findByText("本次处理失败，等待重试")).toBeInTheDocument();
+  expect(screen.getByText(/2026\/11\/10/)).toBeInTheDocument();
+  expect(screen.queryByText("暂无重试安排")).not.toBeInTheDocument();
   fireEvent.click(await screen.findByRole("button", { name: "重试失败设备" }));
   await waitFor(() => expect(screen.getByRole("dialog")).toBeVisible());
   expect(consoleWrite).not.toHaveBeenCalled();

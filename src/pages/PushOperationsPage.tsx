@@ -37,7 +37,16 @@ export function PushOperationsPage() {
     { hasPermission } = useAdminAccess();
   const rows = useQuery({
     queryKey: ["console", "push", search.toString()],
-    queryFn: () => consoleApi.pushes(search),
+    queryFn: async () => {
+      const page = await consoleApi.pushes(search);
+      return {
+        ...page,
+        items: page.items.map((row) => ({
+          ...row,
+          retryable: row.retryable ?? row.status === "FAILED",
+        })),
+      };
+    },
     refetchInterval: 15000,
   });
   const userID = search.get("userID");
