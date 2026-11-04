@@ -1,10 +1,23 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminAccessContext, type AdminPermission } from "../auth/admin-access";
 import { ADMIN_NAVIGATION } from "../auth/admin-navigation";
 import { AppLayout } from "./AppLayout";
+import { logout } from "../api/auth";
+import { clearSession, getSession, setSession } from "../auth/session";
+
+vi.mock("../api/auth", () => ({ logout: vi.fn() }));
+
+function deferredLogout() {
+  let resolve!: () => void;
+  const promise = new Promise<void>((done) => { resolve = done; });
+  return { promise, resolve };
+}
+
+beforeEach(() => { vi.mocked(logout).mockReset(); });
+afterEach(() => { clearSession(); });
 
 function renderLayout(permissions: AdminPermission[], initialEntry = "/") {
   return render(
@@ -13,6 +26,7 @@ function renderLayout(permissions: AdminPermission[], initialEntry = "/") {
     >
       <MemoryRouter initialEntries={[initialEntry]}>
         <Routes>
+          <Route path="login" element={<div>Login destination</div>} />
           <Route
             element={
               <AppLayout
@@ -45,6 +59,66 @@ function renderLayout(permissions: AdminPermission[], initialEntry = "/") {
 }
 
 describe("AppLayout", () => {
+  it("revokes before clearing the session or navigating and prevents duplicate submissions", async () => {
+    const tokens = { accessToken: "access", refreshToken: "refresh" };
+    setSession(tokens);
+    const pending = deferredLogout();
+    vi.mocked(logout).mockReturnValue(pending.promise);
+    renderLayout(["DASHBOARD"]);
+
+    const button = screen.getByRole("button", { name: /退出/ });
+    fireEvent.click(button);
+    await waitFor(() => expect(logout).toHaveBeenCalledExactlyOnceWith("refresh"));
+    expect(getSession()).toEqual(tokens);
+    expect(screen.getByText("Dashboard destination")).toBeInTheDocument();
+    expect(button).toBeDisabled();
+    fireEvent.click(button);
+    expect(logout).toHaveBeenCalledTimes(1);
+
+    await act(async () => { pending.resolve(); });
+    expect(await screen.findByText("Login destination")).toBeInTheDocument();
+    expect(getSession()).toBeNull();
+  });
+
+  it("retains the session on revocation failure, shows a generic error, and allows retry", async () => {
+    const tokens = { accessToken: "access", refreshToken: "refresh" };
+    setSession(tokens);
+    vi.mocked(logout).mockRejectedValueOnce(new Error("private server detail"))
+      .mockResolvedValueOnce(undefined);
+    renderLayout(["DASHBOARD"]);
+
+    fireEvent.click(screen.getByRole("button", { name: /退出/ }));
+
+    expect(await screen.findByText("退出失败，请重试")).toBeInTheDocument();
+    expect(screen.queryByText("private server detail")).not.toBeInTheDocument();
+    expect(getSession()).toEqual(tokens);
+    expect(screen.getByText("Dashboard destination")).toBeInTheDocument();
+    const button = screen.getByRole("button", { name: /退出/ });
+    expect(button).not.toBeDisabled();
+    fireEvent.click(button);
+
+    expect(await screen.findByText("Login destination")).toBeInTheDocument();
+    expect(logout).toHaveBeenCalledTimes(2);
+    expect(getSession()).toBeNull();
+  });
+
+  it("does not clear or navigate away from a replacement session after late logout success", async () => {
+    setSession({ accessToken: "access-a", refreshToken: "refresh-a" });
+    const pending = deferredLogout();
+    vi.mocked(logout).mockReturnValue(pending.promise);
+    renderLayout(["DASHBOARD"]);
+    fireEvent.click(screen.getByRole("button", { name: /退出/ }));
+    await waitFor(() => expect(logout).toHaveBeenCalledWith("refresh-a"));
+    const replacement = { accessToken: "access-b", refreshToken: "refresh-b" };
+    act(() => { setSession(replacement); });
+
+    await act(async () => { pending.resolve(); });
+
+    expect(getSession()).toEqual(replacement);
+    expect(screen.getByText("Dashboard destination")).toBeInTheDocument();
+    expect(screen.queryByText("Login destination")).not.toBeInTheDocument();
+  });
+
   it("shows role and identity without environment or nickname editing controls",()=>{
     renderLayout(["DASHBOARD"]);
     expect(screen.getByText("Admin")).toHaveAttribute("title","账号：admin");

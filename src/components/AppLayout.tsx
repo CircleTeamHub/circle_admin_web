@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useMutation } from "@tanstack/react-query";
 import {
   DashboardOutlined,
   CommentOutlined,
@@ -9,9 +10,10 @@ import {
   TeamOutlined,
   ToolOutlined,
 } from "@ant-design/icons";
-import { Breadcrumb, Button, Layout, Menu, Space, Tag, Typography } from "antd";
+import { Alert, Breadcrumb, Button, Layout, Menu, Space, Tag, Typography } from "antd";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { clearSession } from "../auth/session";
+import { clearSession, getSession, getSessionEpoch } from "../auth/session";
+import { logout } from "../api/auth";
 import type { AuthUser } from "../types";
 import { useAdminAccess } from "../auth/admin-access";
 import { ADMIN_NAVIGATION } from "../auth/admin-navigation";
@@ -21,6 +23,15 @@ const { Header, Sider, Content } = Layout;
 export function AppLayout({ user }: { user: AuthUser }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const logoutMutation = useMutation({
+    mutationFn: ({ refreshToken }: { refreshToken: string; sessionEpoch: number }) =>
+      logout(refreshToken),
+    onSuccess: (_, { sessionEpoch }) => {
+      if (getSessionEpoch() !== sessionEpoch) return;
+      clearSession();
+      navigate("/login", { replace: true });
+    },
+  });
   useEffect(() => {
     document.documentElement.scrollTop = 0;
     document.body.scrollTop = 0;
@@ -108,9 +119,15 @@ export function AppLayout({ user }: { user: AuthUser }) {
             </Typography.Text>
             <Button
               icon={<LogoutOutlined />}
+              loading={logoutMutation.isPending}
+              disabled={logoutMutation.isPending}
               onClick={() => {
-                clearSession();
-                navigate("/login", { replace: true });
+                const session = getSession();
+                if (!session || logoutMutation.isPending) return;
+                logoutMutation.mutate({
+                  refreshToken: session.refreshToken,
+                  sessionEpoch: getSessionEpoch(),
+                });
               }}
             >
               退出
@@ -118,6 +135,7 @@ export function AppLayout({ user }: { user: AuthUser }) {
           </Space>
         </Header>
         <Content className="app-content" id="main-content" tabIndex={-1}>
+          {logoutMutation.isError ? <Alert type="error" showIcon title="退出失败，请重试" /> : null}
           <Outlet />
         </Content>
       </Layout>

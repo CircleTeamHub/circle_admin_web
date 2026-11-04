@@ -197,7 +197,7 @@ describe('apiClient', () => {
     });
   });
 
-  it('clears the session when refresh fails', async () => {
+  it.each([401, 403])('clears the matching session when refresh returns %s', async (status) => {
     setSession({ accessToken: 'old-access', refreshToken: 'refresh-token' });
     globalThis.fetch = vi
       .fn()
@@ -205,11 +205,41 @@ describe('apiClient', () => {
         jsonResponse({ code: 401, message: 'expired', data: null }, { status: 401 }),
       )
       .mockResolvedValueOnce(
-        jsonResponse({ code: 403, message: 'forbidden', data: null }, { status: 403 }),
+        jsonResponse({ code: status, message: 'forbidden', data: null }, { status }),
       );
 
     await expect(apiClient('/secure')).rejects.toBeInstanceOf(ApiError);
     expect(getSession()).toBeNull();
+  });
+
+  it('preserves the original session when refresh returns 503 without retrying', async () => {
+    const tokens = { accessToken: 'old-access', refreshToken: 'refresh-token' };
+    setSession(tokens);
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ message: 'expired' }, { status: 401 }))
+      .mockResolvedValueOnce(jsonResponse({ message: 'unavailable' }, { status: 503 }));
+    globalThis.fetch = fetchMock;
+
+    await expect(apiClient('/secure')).rejects.toMatchObject({ status: 503 });
+
+    expect(getSession()).toEqual(tokens);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('preserves rotated tokens when the replay has a network failure without retrying', async () => {
+    setSession({ accessToken: 'old-access', refreshToken: 'refresh-token' });
+    const rotatedTokens = { accessToken: 'new-access', refreshToken: 'new-refresh' };
+    const networkError = new TypeError('Failed to fetch');
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ message: 'expired' }, { status: 401 }))
+      .mockResolvedValueOnce(jsonResponse({ code: 0, data: rotatedTokens }))
+      .mockRejectedValueOnce(networkError);
+    globalThis.fetch = fetchMock;
+
+    await expect(apiClient('/secure')).rejects.toBe(networkError);
+
+    expect(getSession()).toEqual(rotatedTokens);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   it('wraps non-json error responses in ApiError', async () => {
