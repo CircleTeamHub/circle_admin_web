@@ -23,8 +23,12 @@ import {
 } from "../api/admin-im";
 
 export function GroupMembersPage() {
-  const { hasPermission } = useAdminAccess();
   const { conversationId = "" } = useParams();
+  return <GroupMembers key={conversationId} conversationId={conversationId} />;
+}
+
+function GroupMembers({ conversationId }: { conversationId: string }) {
+  const { hasPermission } = useAdminAccess();
   const [keyword, setKeyword] = useState("");
   const [page, setPage] = useState(1);
   const [target, setTarget] = useState<ImMember>();
