@@ -70,9 +70,9 @@
 - [x] Remove temporary logs/test caches and verify all started child processes exited.
 
 
-## Known boundary
+## Logout boundary resolved by backend follow-up
 
-The existing backend logout endpoint revokes an individual refresh-token row. A logout overlapping token rotation can target the old row while a descendant server session survives. The frequency is not measured; this patch does not introduce rotation coordination or backend family revocation. Expanding that concurrency scope requires a separate discussion under the project's rule for low-probability defensive handling.
+The user authorized this follow-up. Backend commit `3f39ef9` now revokes the token family under the same account lock as rotation and advances durable FAMILY generation. Real PostgreSQL tests verify both orderings and refresh/access invalidation. Deploying that backend commit is required for the behavior to take effect online; no production deployment was performed. See `2026-11-04-remaining-production-hardening.md` for current verification.
 
 
 ## Final verification results
@@ -87,4 +87,4 @@ Validated source revision: `2a1ba49` on Windows / Node 24. The final documentati
 | `git diff --check` | Passed |
 | Independent task and whole-branch review | Approved after correcting the push-details response adaptation |
 
-Existing AntD/jsdom warnings and the large-bundle warning remain. A real registry promotion and production/backend writes were not executed. All started test/build command sessions exited; temporary test caches/logs were removed, and no temporary Node/esbuild/copy/shell processes remained visible. The branch and worktree are preserved for review; no push, merge or deployment was performed.
+Existing AntD/jsdom warnings and the large-bundle warning remain. At this initial checkpoint, real registry promotion was not executed. The authorized follow-up records successful local registry promotion and real PostgreSQL verification; production deployment remains separate. All started test/build command sessions exited; temporary test caches/logs were removed, and no temporary Node/esbuild/copy/shell processes remained visible. The branch and worktree are preserved for review; no push, merge or deployment was performed.
