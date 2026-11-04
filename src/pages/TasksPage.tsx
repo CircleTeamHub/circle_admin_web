@@ -198,7 +198,7 @@ export function TasksPage() {
                 <Space orientation="vertical" size={2}>
                   <Tag
                     color={
-                      s === "COMPLETED"
+                      s === "COMPLETED" || s === "SUCCEEDED"
                         ? "success"
                         : s === "FAILED" || s === "TERMINAL"
                           ? "error"

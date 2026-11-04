@@ -18,13 +18,13 @@ beforeEach(() => {
     groupOperations: [],
   });
 });
-function show() {
+function show(path = "/tasks") {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   return render(
     <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={["/tasks"]}>
+      <MemoryRouter initialEntries={[path]}>
         <TasksPage />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -101,4 +101,31 @@ it("routes failed retryable notifications to push operations instead of retrying
   show();
   expect(await screen.findByRole("link",{name:"查看推送详情"})).toHaveAttribute("href","/push-operations?taskID=failed-task");
   expect(screen.queryByRole("button",{name:/重试/})).not.toBeInTheDocument();
+});
+
+it("shows exhausted group failures without promising or scheduling automatic retry", async () => {
+  vi.mocked(consoleApi.tasks).mockResolvedValue({
+    kind: "group_operation", nextCursor: null, items: [{
+      id: "failed-group", status: "FAILED", retryable: false, attempts: 5, lastError: null,
+      nextAttemptAt: "2026-11-01T00:00:00Z", createdAt: "2026-10-17", updatedAt: "2026-10-17",
+    }],
+  });
+  show("/tasks?kind=group_operation");
+  expect(await screen.findByText("处理失败，不再自动重试")).toBeInTheDocument();
+  const row = screen.getByRole("row", { name: /处理失败/ });
+  expect(row.textContent).not.toContain("2026/11/01");
+});
+
+it("shows succeeded group operations with completion text and success color", async () => {
+  vi.mocked(consoleApi.tasks).mockResolvedValue({
+    kind: "group_operation", nextCursor: null, items: [{
+      id: "succeeded-group", status: "SUCCEEDED", attempts: 1, lastError: null,
+      nextAttemptAt: "2026-11-01T00:00:00Z", createdAt: "2026-10-17", updatedAt: "2026-10-17",
+    }],
+  });
+  show("/tasks?kind=group_operation");
+  expect(await screen.findByText("执行成功")).toHaveClass("ant-tag-success");
+  const row = screen.getByRole("row", { name: /执行成功/ });
+  expect(within(row).getByText("后台处理完成")).toBeInTheDocument();
+  expect(row.textContent).not.toContain("2026/11/01");
 });
