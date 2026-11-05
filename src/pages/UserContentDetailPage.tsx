@@ -1,3 +1,4 @@
+import { browserImageUrl } from "../utils/browser-image-url";
 import type { AdminCirclePost } from "../api/community";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -98,7 +99,7 @@ function Media({ media }: { media: NoteMedia }) {
   if (!url)
     return <Typography.Text type="secondary">媒体暂不可用</Typography.Text>;
   if (media.type === "IMAGE")
-    return <Image width={200} src={url} alt="笔记图片" />;
+    return <Image width={200} src={browserImageUrl(url)} alt="笔记图片" />;
   if (media.type === "VIDEO")
     return (
       <video

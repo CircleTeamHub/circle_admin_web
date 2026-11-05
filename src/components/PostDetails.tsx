@@ -1,3 +1,4 @@
+import { browserImageUrl } from "../utils/browser-image-url";
 import { useQuery } from "@tanstack/react-query";
 import { Collapse, Descriptions, Image, Space, Spin, Typography } from "antd";
 import { Link } from "react-router-dom";
@@ -29,7 +30,7 @@ export function PostDetails({ postID }: { postID: string }) {
       </div>
       {post.images.length > 0 && <div>
         <Typography.Title level={5}>帖子图片</Typography.Title>
-        <Image.PreviewGroup><Space wrap align="start">{post.images.map((url, index) => /^https?:\/\//i.test(url) ? <Image key={`${index}-${url}`} src={url} width={160} height={160} style={{ objectFit: "cover", borderRadius: 8 }} alt={`帖子图片 ${index + 1}`} /> : <Typography.Text key={index} type="secondary">图片 {index + 1} 暂不可用</Typography.Text>)}</Space></Image.PreviewGroup>
+        <Image.PreviewGroup><Space wrap align="start">{post.images.map((url, index) => /^https?:\/\//i.test(url) ? <Image key={`${index}-${url}`} src={browserImageUrl(url)} width={160} height={160} style={{ objectFit: "cover", borderRadius: 8 }} alt={`帖子图片 ${index + 1}`} /> : <Typography.Text key={index} type="secondary">图片 {index + 1} 暂不可用</Typography.Text>)}</Space></Image.PreviewGroup>
       </div>}
       {post.tags.length > 0 && <Typography.Text type="secondary">标签：{post.tags.join("、")}</Typography.Text>}
       <Collapse size="small" items={[{key: "ids", label: "内部编号（排查用）", children: <Identifier value={post.id} inline />}]} />

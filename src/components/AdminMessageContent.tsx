@@ -1,3 +1,4 @@
+import { browserImageUrl } from "../utils/browser-image-url";
 import { CodeValue } from "./ReadableValue";
 import { Button, Image, Space, Typography } from "antd";
 import { useState } from "react";
@@ -64,7 +65,7 @@ export function AdminMessageContent({
       <Space direction="vertical">
         <Image
           width={160}
-          src={url}
+          src={browserImageUrl(url)}
           referrerPolicy="no-referrer"
           preview={false}
           onError={() => setFailed(true)}

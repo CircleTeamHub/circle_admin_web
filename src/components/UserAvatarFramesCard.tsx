@@ -1,3 +1,4 @@
+import { browserImageUrl } from "../utils/browser-image-url";
 import {
   useInfiniteQuery,
   useMutation,
@@ -218,7 +219,7 @@ export function UserAvatarFramesCard({ userId }: { userId: string }) {
       title: "头像框",
       render: (_, item) => (
         <Space>
-          <Avatar src={item.imageUrl || undefined}>
+          <Avatar src={browserImageUrl(item.imageUrl || undefined)}>
             {item.name.slice(0, 1)}
           </Avatar>
           <span>{item.name}</span>

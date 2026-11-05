@@ -28,6 +28,9 @@ import { UserAvatarFramesCard } from "../components/UserAvatarFramesCard";
 import type { AdminAuditLog, AuthUser, SensitiveField } from "../types";
 import { formatDateTime } from "../utils/format";
 import { useAdminAccess } from "../auth/admin-access";
+import { SafetyCertificateOutlined } from "@ant-design/icons";
+import newJoinerBadge from "../assets/newjoiner.png";
+import { browserImageUrl } from "../utils/browser-image-url";
 
 const CONTACT_LABELS: Array<[SensitiveField, string]> = [
   ["email", "邮箱"],
@@ -110,7 +113,7 @@ export function UserDetailPage({ currentUser }: { currentUser: AuthUser }) {
       {backlink}
       <Space className="page-title-row" wrap>
         <Space>
-          <Avatar size={56} src={data.profile.avatarUrl || undefined}>
+          <Avatar size={56} alt={`${displayName} 的头像`} src={browserImageUrl(data.profile.avatarUrl) || undefined}>
             {displayName.slice(0, 1).toUpperCase()}
           </Avatar>
           <div>
@@ -139,7 +142,7 @@ export function UserDetailPage({ currentUser }: { currentUser: AuthUser }) {
       {data.profile.cover && (
         <Card title="个人主页封面">
           <Image
-            src={data.profile.cover}
+            src={browserImageUrl(data.profile.cover)}
             alt="个人主页封面"
             style={{ maxHeight: 280, objectFit: "cover" }}
           />
@@ -183,14 +186,14 @@ export function UserDetailPage({ currentUser }: { currentUser: AuthUser }) {
                 <Space wrap>
                   {data.profile.displayIcons.map((icon) => (
                     <Space key={icon.id}>
-                      {icon.imageUrl && (
+                      {icon.imageUrl || icon.systemKey === "NEW_USER" ? (
                         <Image
-                          src={icon.imageUrl}
+                          src={icon.imageUrl ? browserImageUrl(icon.imageUrl) : newJoinerBadge}
                           alt={icon.title}
                           width={32}
                           height={32}
                         />
-                      )}
+                      ) : <SafetyCertificateOutlined aria-label={icon.title} style={{ fontSize: 28 }} />}
                       <Tag>{icon.title}</Tag>
                       {icon.circleId && hasPermission("COMMUNITY_MANAGE") && (
                         <Link

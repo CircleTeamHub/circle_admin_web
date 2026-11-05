@@ -77,6 +77,9 @@ export interface AdminUserDetail {
     receivedLikeCount?: number;
     displayIcons?: Array<{
       id: string;
+      type?: "SYSTEM" | "CIRCLE";
+      systemKey?: string | null;
+      fallbackIconName?: string | null;
       title: string;
       imageUrl: string | null;
       circleId?: string;

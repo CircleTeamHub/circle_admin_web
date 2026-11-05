@@ -23,6 +23,10 @@ VIP 卡片当前只显示 `新的月度 VIP 系统设计中`。本版本不读�
 
 ## 本地开发
 
+公开 HEIC/HEIF 图片在显示时使用 COS `imageMogr2/format/jpg` 生成 JPEG 预览，保留原图。
+该预览要求公开图片交付域转发 COS 图片处理参数；签名 URL 和私有目录不会被改写。
+新手徽章使用与 App 相同的本地 `newjoiner.png` 素材。
+
 ```bash
 npm install
 npm run dev

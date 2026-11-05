@@ -1,3 +1,4 @@
+import { browserImageUrl } from "../utils/browser-image-url";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Alert,
@@ -320,7 +321,7 @@ export function GroupDetailPage() {
               key: "avatar",
               label: "群头像",
               children: g.avatarUrl ? (
-                <Image width={100} src={g.avatarUrl} alt="群头像" />
+                <Image width={100} src={browserImageUrl(g.avatarUrl)} alt="群头像" />
               ) : (
                 "未设置"
               ),
@@ -449,7 +450,7 @@ export function GroupDetailPage() {
     <Space orientation="vertical" className="page-stack" size={16}>
       {back}
       <Space>
-        <Avatar size={56} src={g.avatarUrl} />
+        <Avatar size={56} src={browserImageUrl(g.avatarUrl)} />
         <Typography.Title level={3} style={{ margin: 0 }}>
           {g.name}
         </Typography.Title>
