@@ -30,8 +30,9 @@ export function notificationLabel(type?: string) {
     ? (NOTIFICATION_LABEL[type] ?? `其他通知（${type}）`)
     : "通知记录不可用";
 }
-export function nextTaskAttempt(task: Pick<Task, "status" | "nextAttemptAt">) {
-  return ["COMPLETED", "TERMINAL"].includes(task.status)
+export function nextTaskAttempt(task: Pick<Task, "status" | "nextAttemptAt" | "retryable">) {
+  return ["COMPLETED", "SUCCEEDED", "TERMINAL"].includes(task.status) ||
+    (task.status === "FAILED" && !task.retryable)
     ? null
     : task.nextAttemptAt;
 }
@@ -63,7 +64,8 @@ export function taskResult(task: Task) {
     PENDING: "等待后台处理",
     PROCESSING: "后台正在处理",
     COMPLETED: "后台处理完成",
-    FAILED: "本次处理失败，等待重试",
+    SUCCEEDED: "后台处理完成",
+    FAILED: task.retryable ? "本次处理失败，等待重试" : "处理失败，不再自动重试",
     TERMINAL: "已停止处理，不再自动重试",
   };
   return results[task.status] ?? "结果待确认";

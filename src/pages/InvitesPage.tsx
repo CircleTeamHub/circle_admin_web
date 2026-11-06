@@ -333,8 +333,13 @@ export function InvitesPage({ embedded = false }: { embedded?: boolean }) {
             onClick={async () => {
               const result = await campaigns.refetch();
               const row = result.data?.items.find((r) => r.id === editing?.id);
-              if (row) {
+              if (result.isSuccess && row) {
                 setEditing(row);
+                form.setFieldsValue({
+                  enabled: row.enabled,
+                  maxUses: row.maxUses,
+                  expiresAt: localInput(row.expiresAt),
+                });
                 setConflict(false);
                 setError(undefined);
               }

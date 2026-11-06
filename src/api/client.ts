@@ -165,29 +165,34 @@ async function performRequest<T>(
     if (getSessionEpoch() !== sessionEpoch) {
       throw sessionChangedError();
     }
+    let accessToken: string;
     try {
       const latestSession = getSession();
-      const accessToken =
+      accessToken =
         latestSession?.accessToken &&
         latestSession.accessToken !== session?.accessToken
           ? latestSession.accessToken
           : await getRefreshedAccessToken(sessionEpoch);
-      if (getSessionEpoch() !== sessionEpoch) {
-        throw sessionChangedError();
-      }
-      requestHeaders.Authorization = `Bearer ${accessToken}`;
-      return parseResponse<T>(
-        await fetch(apiUrl(path), {
-          ...requestInit,
-          headers: requestHeaders,
-        }),
-      );
     } catch (error) {
-      if (getSessionEpoch() === sessionEpoch) {
+      if (
+        error instanceof ApiError &&
+        (error.status === 401 || error.status === 403) &&
+        getSessionEpoch() === sessionEpoch
+      ) {
         clearSession();
       }
       throw error;
     }
+    if (getSessionEpoch() !== sessionEpoch) {
+      throw sessionChangedError();
+    }
+    requestHeaders.Authorization = `Bearer ${accessToken}`;
+    return parseResponse<T>(
+      await fetch(apiUrl(path), {
+        ...requestInit,
+        headers: requestHeaders,
+      }),
+    );
   }
 
   return parseResponse<T>(response);

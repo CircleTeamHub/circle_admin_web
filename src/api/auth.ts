@@ -23,6 +23,15 @@ export function getMe(): Promise<AuthUser> {
   return apiClient<AuthUser>("/auth/me");
 }
 
+export function logout(refreshToken: string): Promise<void> {
+  return apiClient<void>("/auth/logout", {
+    method: "POST",
+    auth: false,
+    retryOnUnauthorized: false,
+    body: JSON.stringify({ refreshToken }),
+  });
+}
+
 export function updateAdminNickname(nickname: string): Promise<{id:string;nickname:string}> {
   return apiClient('/admin/access/me/nickname',{method:'PATCH',retryOnUnauthorized:false,body:JSON.stringify({nickname})});
 }

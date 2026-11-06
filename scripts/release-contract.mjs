@@ -40,6 +40,19 @@ test('release promotes prebuilt images and deploys immutable digests', () => {
   assert.match(release, /ADMIN_WEB_IMAGE: \$\{\{ needs\.resolve\.outputs\.image_ref \}\}/);
 });
 
+test('version promotion preserves the source manifest identity and verifies its digest', () => {
+  const release = read('.github/workflows/release.yml');
+  assert.match(release, /docker buildx imagetools create --prefer-index=false -t "\$RELEASE_IMAGE" "\$SHA_IMAGE"/);
+  assert.match(release, /\[ "\$actual" != "\$EXPECTED_DIGEST" \]/);
+});
+
+test('main promotion preserves the source manifest identity', () => {
+  assert.match(
+    read('.github/workflows/build-image.yml'),
+    /docker buildx imagetools create --prefer-index=false --tag "\$MAIN_IMAGE" "\$SHA_IMAGE"/,
+  );
+});
+
 test('every admin workflow action is pinned to a full commit SHA', () => {
   const workflowDir = new URL('../.github/workflows/', import.meta.url);
   for (const filename of readdirSync(workflowDir)) {
@@ -119,7 +132,7 @@ test('admin runtime images install current Alpine security updates', () => {
   );
   assert.match(
     workflow,
-    /docker buildx imagetools create --tag "\$MAIN_IMAGE" "\$SHA_IMAGE"/,
+    /docker buildx imagetools create --prefer-index=false --tag "\$MAIN_IMAGE" "\$SHA_IMAGE"/,
     'main promotion must reuse the immutable commit manifest',
   );
   assert.match(

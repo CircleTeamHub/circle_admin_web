@@ -143,7 +143,7 @@ jobs:
           SHA_IMAGE: ${{ needs.resolve.outputs.sha_image }}
         run: |
           set -euo pipefail
-          docker buildx imagetools create -t "$RELEASE_IMAGE" "$SHA_IMAGE"
+          docker buildx imagetools create --prefer-index=false -t "$RELEASE_IMAGE" "$SHA_IMAGE"
           actual="$(docker buildx imagetools inspect "$RELEASE_IMAGE" --format '{{json .Manifest}}' | jq -er '.digest')"
           if [ "$actual" != "$EXPECTED_DIGEST" ]; then
             echo "Promoted digest mismatch: $actual != $EXPECTED_DIGEST" >&2

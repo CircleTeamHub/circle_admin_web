@@ -117,4 +117,4 @@ jobs:
             echo "Skipping main promotion because $GITHUB_SHA is no longer current."
             exit 0
           fi
-          docker buildx imagetools create --tag "$MAIN_IMAGE" "$SHA_IMAGE"
+          docker buildx imagetools create --prefer-index=false --tag "$MAIN_IMAGE" "$SHA_IMAGE"

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { login } from './auth';
+import { login, logout } from './auth';
+import { clearSession, setSession } from '../auth/session';
 
 const originalFetch = globalThis.fetch;
 
@@ -14,6 +15,7 @@ describe('auth api', () => {
   afterEach(() => {
     globalThis.fetch = originalFetch;
     vi.restoreAllMocks();
+    clearSession();
   });
 
   it('logs in through the admin-only auth endpoint', async () => {
@@ -43,5 +45,27 @@ describe('auth api', () => {
         }),
       }),
     );
+  });
+
+  it('revokes only the supplied refresh token without bearer auth or refresh replay', async () => {
+    setSession({ accessToken: 'access-token', refreshToken: 'refresh-token' });
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 401 }));
+    globalThis.fetch = fetchMock;
+
+    await expect(logout('refresh-token')).rejects.toMatchObject({ status: 401 });
+
+    expect(fetchMock).toHaveBeenCalledExactlyOnceWith('/api/v1/auth/logout', {
+      method: 'POST',
+      body: JSON.stringify({ refreshToken: 'refresh-token' }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+  });
+
+  it('accepts an empty successful logout response', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    globalThis.fetch = fetchMock;
+
+    await logout('refresh-token');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
