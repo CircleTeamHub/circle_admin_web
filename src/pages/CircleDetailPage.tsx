@@ -1,3 +1,4 @@
+import { browserImageUrl } from "../utils/browser-image-url";
 import { PostSignupsButton } from "../components/PostSignupsButton";
 import { useAdminAccess } from "../auth/admin-access";
 import { useQuery } from "@tanstack/react-query";
@@ -40,7 +41,7 @@ export function Person({ user }: { user: CirclePerson }) {
   const { hasPermission } = useAdminAccess();
   return (
     <Space>
-      <Avatar src={user.avatarUrl}>
+      <Avatar src={browserImageUrl(user.avatarUrl)}>
         {(user.nickname || user.accountId).slice(0, 1)}
       </Avatar>
       <Space orientation="vertical" size={0}>
@@ -153,7 +154,7 @@ export function Post({ post }: { post: AdminCirclePost }) {
               width={120}
               height={120}
               style={{ objectFit: "cover" }}
-              src={url}
+              src={browserImageUrl(url)}
               alt={`动态图片 ${index + 1}`}
             />
           ))}
@@ -304,7 +305,7 @@ export function CircleDetailPage() {
     <Space orientation="vertical" size={16} style={{ width: "100%" }}>
       {c.cover && (
         <Image
-          src={c.cover}
+          src={browserImageUrl(c.cover)}
           alt="圈子封面"
           style={{ maxHeight: 280, objectFit: "cover" }}
         />
@@ -324,7 +325,7 @@ export function CircleDetailPage() {
               key: "avatar",
               label: "头像",
               children: c.avatarUrl ? (
-                <Image src={c.avatarUrl} alt="圈子头像" width={80} />
+                <Image src={browserImageUrl(c.avatarUrl)} alt="圈子头像" width={80} />
               ) : (
                 "未设置"
               ),
@@ -333,7 +334,7 @@ export function CircleDetailPage() {
               key: "icon",
               label: "当前圈子图标",
               children: c.currentIconUrl ? (
-                <Image src={c.currentIconUrl} alt="当前圈子图标" width={80} />
+                <Image src={browserImageUrl(c.currentIconUrl)} alt="当前圈子图标" width={80} />
               ) : (
                 "未设置"
               ),
@@ -548,7 +549,7 @@ export function CircleDetailPage() {
     <Space orientation="vertical" className="page-stack" size={16}>
       {back}
       <Space>
-        <Avatar size={56} src={c.avatarUrl} />
+        <Avatar size={56} src={browserImageUrl(c.avatarUrl)} />
         <Typography.Title level={3} style={{ margin: 0 }}>
           {c.name}
         </Typography.Title>

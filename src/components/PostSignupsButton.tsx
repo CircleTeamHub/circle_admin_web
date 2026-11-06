@@ -1,3 +1,4 @@
+import { browserImageUrl } from "../utils/browser-image-url";
 import { useQuery } from "@tanstack/react-query";
 import { Avatar, Button, Modal, Space, Table, Typography } from "antd";
 import { useState } from "react";
@@ -42,7 +43,7 @@ function SignupRoster({ postID }: { postID: string }) {
             title: "报名人",
             render: (_, row) => (
               <Space>
-                <Avatar src={row.user.avatarUrl}>
+                <Avatar src={browserImageUrl(row.user.avatarUrl)}>
                   {row.user.nickname.slice(0, 1)}
                 </Avatar>
                 {hasPermission("USER_READ") ? (

@@ -228,4 +228,24 @@ describe("UserDetailPage", () => {
       "https://example.test/cover.jpg",
     );
   });
+
+  it("renders existing HEIC avatar and circle icon with a JPEG preview and the App's new-user badge", async () => {
+    const avatar = "https://api.example.test/circle/avatars/u1/avatar.HEIC";
+    const circleIcon = "https://api.example.test/circle/avatars/u1/circle.heif";
+    mockedDetail.mockResolvedValue({
+      ...detail,
+      profile: {
+        ...detail.profile,
+        avatarUrl: avatar,
+        displayIcons: [
+          { id: "system:NEW_USER", type: "SYSTEM", title: "新手", systemKey: "NEW_USER", imageUrl: null },
+          { id: "circle-icon", type: "CIRCLE", title: "交流圈", imageUrl: circleIcon },
+        ],
+      },
+    });
+    renderPage();
+    expect(await screen.findByRole("img", { name: "Jim 的头像" })).toHaveAttribute("src", `${avatar}?imageMogr2/format/jpg`);
+    expect(screen.getByRole("img", { name: "交流圈" })).toHaveAttribute("src", `${circleIcon}?imageMogr2/format/jpg`);
+    expect(screen.getByRole("img", { name: "新手" })).toHaveAttribute("src", expect.stringContaining("newjoiner"));
+  });
 });

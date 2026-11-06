@@ -18,6 +18,7 @@ import { listUsers } from "../api/users";
 import { PageError } from "../components/PageError";
 import type { AdminUserListItem, UserRole, UserStatus } from "../types";
 import { formatDateTime } from "../utils/format";
+import { browserImageUrl } from "../utils/browser-image-url";
 
 const PAGE_SIZE = 20;
 
@@ -129,7 +130,7 @@ export function UsersPage() {
       dataIndex: "avatarUrl",
       width: 72,
       render: (value: string | null, record) => (
-        <Avatar src={value || undefined}>
+        <Avatar src={browserImageUrl(value) || undefined}>
           {(record.nickname || record.accountId).slice(0, 1).toUpperCase()}
         </Avatar>
       ),
