@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { getPost } from "../api/moderation";
 import { useAdminAccess } from "../auth/admin-access";
 import { formatDateTime } from "../utils/format";
+import { safeContentURL } from "../utils/safe-content-url";
 import { CodeValue, Identifier } from "./ReadableValue";
 import { PageError } from "./PageError";
 
@@ -15,6 +16,7 @@ export function PostDetails({ postID }: { postID: string }) {
   if (query.isError) return <PageError error={query.error} onRetry={() => query.refetch()} message="帖子内容暂不可用，可能已删除或无权查看" />;
   const post = query.data;
   const authorName = post.author.nickname || post.author.accountId || "未设置昵称";
+  const videos = Array.isArray(post.videos) ? post.videos.map(safeContentURL) : [];
   return (
     <Space orientation="vertical" size={20} style={{ width: "100%" }}>
       <Descriptions column={1} size="small" bordered items={[
@@ -32,6 +34,31 @@ export function PostDetails({ postID }: { postID: string }) {
         <Typography.Title level={5}>帖子图片</Typography.Title>
         <Image.PreviewGroup><Space wrap align="start">{post.images.map((url, index) => /^https?:\/\//i.test(url) ? <Image key={`${index}-${url}`} src={browserImageUrl(url)} width={160} height={160} style={{ objectFit: "cover", borderRadius: 8 }} alt={`帖子图片 ${index + 1}`} /> : <Typography.Text key={index} type="secondary">图片 {index + 1} 暂不可用</Typography.Text>)}</Space></Image.PreviewGroup>
       </div>}
+      {videos.length > 0 && (
+        <div>
+          <Typography.Title level={5}>帖子视频</Typography.Title>
+          <Space wrap align="start">
+            {videos.map((url, index) =>
+              url ? (
+                <video
+                  key={`${index}-${url}`}
+                  aria-label={`帖子视频 ${index + 1}`}
+                  src={url}
+                  controls
+                  playsInline
+                  preload="none"
+                  width={240}
+                  style={{ maxWidth: "100%" }}
+                />
+              ) : (
+                <Typography.Text key={index} type="secondary">
+                  视频 {index + 1} 暂不可用
+                </Typography.Text>
+              ),
+            )}
+          </Space>
+        </div>
+      )}
       {post.tags.length > 0 && <Typography.Text type="secondary">标签：{post.tags.join("、")}</Typography.Text>}
       <Collapse size="small" items={[{key: "ids", label: "内部编号（排查用）", children: <Identifier value={post.id} inline />}]} />
     </Space>

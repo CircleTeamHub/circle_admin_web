@@ -1,4 +1,5 @@
 import { browserImageUrl } from "../utils/browser-image-url";
+import { safeContentURL } from "../utils/safe-content-url";
 import type { AdminCirclePost } from "../api/community";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -25,15 +26,6 @@ import { PageError } from "../components/PageError";
 import { Identifier } from "../components/ReadableValue";
 import { Post } from "./CircleDetailPage";
 import { noteStatus } from "./UserResourcesCard";
-export function safeContentURL(value: unknown): string | undefined {
-  if (typeof value !== "string") return undefined;
-  try {
-    const url = new URL(value);
-    return ["http:", "https:"].includes(url.protocol) ? url.href : undefined;
-  } catch {
-    return undefined;
-  }
-}
 function object(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)

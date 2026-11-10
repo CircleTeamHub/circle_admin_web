@@ -21,6 +21,7 @@ export interface ContentPost {
   id: string;
   content: string;
   images: string[];
+  videos?: string[];
   tags: string[];
   status: "ACTIVE" | "ENDED" | "DELETED";
   createdAt: string;

@@ -7,7 +7,8 @@ import {
   getUserPost,
   type AdminNoteDetail,
 } from "../api/user-resources";
-import { UserContentDetailPage, safeContentURL } from "./UserContentDetailPage";
+import { UserContentDetailPage } from "./UserContentDetailPage";
+import { safeContentURL } from "../utils/safe-content-url";
 vi.mock("../api/user-resources", () => ({
   getUserNote: vi.fn(),
   getUserPost: vi.fn(),
