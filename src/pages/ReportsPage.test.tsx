@@ -16,8 +16,9 @@ it.each(["friend", "group", "post"])("shows reporter identity and a profile link
   expect(screen.getAllByRole("link",{name:"小明"})).toHaveLength(2);
 });
 
-it.each([/^详\s*情$/, /^帖子详情$/])("shows playable videos when opening a reported post with %s", async (buttonName) => {
-  const videoUrl = "https://example.test/circle/posts/user/ride.mp4";
+const videoUrl = "https://example.test/circle/posts/user/ride.mov";
+
+async function openReportedPost(buttonName = /^详\s*情$/) {
   const reporter = { id: "reporter-1", accountId: "reporter", nickname: "举报人" };
   const author = { id: "author-1", accountId: "xiaoming", nickname: "小明" };
   const circle = { id: "circle-1", name: "骑行圈" };
@@ -62,7 +63,11 @@ it.each([/^详\s*情$/, /^帖子详情$/])("shows playable videos when opening a
 
   fireEvent.click(await screen.findByRole("button", { name: buttonName }));
   expect(await screen.findByText("周末一起骑行")).toBeInTheDocument();
-  const player = screen.getByLabelText("帖子视频 1");
+  return screen.getByLabelText("帖子视频 1");
+}
+
+it.each([/^详\s*情$/, /^帖子详情$/])("shows playable videos when opening a reported post with %s", async (buttonName) => {
+  const player = await openReportedPost(buttonName);
   expect(player.tagName).toBe("VIDEO");
   expect(player).toHaveAttribute("src", videoUrl);
   expect(player).toHaveAttribute("controls");
@@ -70,4 +75,17 @@ it.each([/^详\s*情$/, /^帖子详情$/])("shows playable videos when opening a
   expect(player).not.toHaveAttribute("autoplay");
   expect(screen.queryByLabelText("帖子视频 2")).not.toBeInTheDocument();
   expect(screen.queryByLabelText("帖子视频 3")).not.toBeInTheDocument();
+});
+
+it("offers the original video when browser playback fails", async () => {
+  const player = await openReportedPost();
+  expect(screen.queryByRole("link", { name: "打开原视频" })).not.toBeInTheDocument();
+
+  fireEvent.error(player);
+
+  expect(screen.getByRole("alert")).toHaveTextContent("视频无法播放");
+  const original = screen.getByRole("link", { name: "打开原视频" });
+  expect(original).toHaveAttribute("href", videoUrl);
+  expect(original).toHaveAttribute("target", "_blank");
+  expect(original).toHaveAttribute("rel", "noopener noreferrer");
 });

@@ -1,6 +1,7 @@
 import { browserImageUrl } from "../utils/browser-image-url";
 import { useQuery } from "@tanstack/react-query";
 import { Collapse, Descriptions, Image, Space, Spin, Typography } from "antd";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { getPost } from "../api/moderation";
 import { useAdminAccess } from "../auth/admin-access";
@@ -8,6 +9,30 @@ import { formatDateTime } from "../utils/format";
 import { safeContentURL } from "../utils/safe-content-url";
 import { CodeValue, Identifier } from "./ReadableValue";
 import { PageError } from "./PageError";
+
+function PostVideo({ url, index }: { url: string; index: number }) {
+  const [failed, setFailed] = useState(false);
+  return (
+    <div>
+      <video
+        aria-label={`帖子视频 ${index + 1}`}
+        src={url}
+        controls
+        playsInline
+        preload="none"
+        width={240}
+        style={{ maxWidth: "100%" }}
+        onError={() => setFailed(true)}
+      />
+      {failed && (
+        <div>
+          <Typography.Text role="alert" type="secondary">视频无法播放。</Typography.Text>
+          <a href={url} target="_blank" rel="noopener noreferrer">打开原视频</a>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function PostDetails({ postID }: { postID: string }) {
   const { hasPermission } = useAdminAccess();
@@ -40,16 +65,7 @@ export function PostDetails({ postID }: { postID: string }) {
           <Space wrap align="start">
             {videos.map((url, index) =>
               url ? (
-                <video
-                  key={`${index}-${url}`}
-                  aria-label={`帖子视频 ${index + 1}`}
-                  src={url}
-                  controls
-                  playsInline
-                  preload="none"
-                  width={240}
-                  style={{ maxWidth: "100%" }}
-                />
+                <PostVideo key={`${post.id}-${index}-${url}`} url={url} index={index} />
               ) : (
                 <Typography.Text key={index} type="secondary">
                   视频 {index + 1} 暂不可用
