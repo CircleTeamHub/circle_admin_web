@@ -11,6 +11,7 @@ export const ADMIN_NAVIGATION: Array<{
   { key: "/community", label: "圈子管理", permission: "COMMUNITY_MANAGE" },
   { key: "/im", label: "会话与聊天记录", permission: "IM_READ" },
   { key: "/reports", label: "举报审核", permission: "MODERATION_MANAGE" },
+  { key: "/note-ratings", label: "笔记评分审核", permission: "MODERATION_MANAGE" },
   { key: "/content", label: "圈子内容管理", permission: "MODERATION_MANAGE" },
   {
     key: "/sensitive-words",
