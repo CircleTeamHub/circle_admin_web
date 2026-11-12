@@ -97,6 +97,18 @@ it("lists pending cases and shows who rated whom, when, as evidence", async () =
   expect(within(drawer).getAllByText("暂扣")).toHaveLength(2);
 });
 
+it("steps back to the last page once its final case is resolved away", async () => {
+  vi.mocked(listNoteRatingCases).mockImplementation(async ({ page }) =>
+    page === 2
+      ? { items: [], total: 20, page: 2, limit: 20, hasMore: false }
+      : { items: [burst], total: 20, page: 1, limit: 20, hasMore: false },
+  );
+  renderPage("/note-ratings?page=2");
+
+  expect(await screen.findByText("2 条好评")).toBeInTheDocument();
+  expect(listNoteRatingCases).toHaveBeenLastCalledWith({ status: "PENDING", kind: undefined, page: 1, limit: 20 });
+});
+
 it("filters by kind through the URL", async () => {
   vi.mocked(listNoteRatingCases).mockResolvedValue({ items: [appeal], total: 1, page: 1, limit: 20, hasMore: false });
   renderPage("/note-ratings?kind=APPEAL&status=RESOLVED");

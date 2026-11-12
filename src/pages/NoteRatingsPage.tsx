@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Alert, Button, Descriptions, Drawer, Form, Input, Modal, Space, Table, Tabs, Tag, Typography, message } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ApiError } from "../api/client";
 import {
@@ -120,6 +120,12 @@ export function NoteRatingsPage() {
     queryFn: () =>
       listNoteRatingCases({ status, kind: kind === "ALL" ? undefined : kind, page, limit: PAGE_SIZE }),
   });
+  // Resolving the last pending case on a page drops it out of the list; step back to
+  // the last page that still has cases instead of leaving the admin on an empty one.
+  const lastPage = Math.max(1, Math.ceil((cases.data?.total ?? 0) / PAGE_SIZE));
+  useEffect(() => {
+    if (cases.data?.items.length === 0 && page > lastPage) setPage(lastPage);
+  }, [cases.data, page, lastPage, setPage]);
   const mutation = useMutation({
     mutationFn: ({ item, action, note }: { item: NoteRatingCase; action: NoteRatingCaseAction; note?: string }) =>
       resolveNoteRatingCase(item.id, action, note),
