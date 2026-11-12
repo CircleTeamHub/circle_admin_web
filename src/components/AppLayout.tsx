@@ -72,7 +72,7 @@ export function AppLayout({ user }: { user: AuthUser }) {
           }));
   const navigationGroups = [
     { label: "概览", keys: ["/"] },
-    { label: "用户与社群", keys: ["/users", "/community", "/im", "/content", "/reports", "/sensitive-words"] },
+    { label: "用户与社群", keys: ["/users", "/community", "/im", "/content", "/reports", "/note-ratings", "/sensitive-words"] },
     { label: "运营管理", keys: ["/memberships", "/support-agents", "/announcements", "/push-operations"] },
     { label: "系统与排查", keys: ["/admin-access", "/audit-logs", "/tasks", "/releases", "/diagnostics", "/user-events", "/automation-keys", "/system"] },
   ];

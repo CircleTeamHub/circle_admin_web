@@ -31,6 +31,7 @@ import { CommunityPage } from "../pages/CommunityPage";
 import { SupportAgentsPage } from "../pages/SupportAgentsPage";
 import { LoginPage } from "../pages/LoginPage";
 import { ReportsPage } from "../pages/ReportsPage";
+import { NoteRatingsPage } from "../pages/NoteRatingsPage";
 import { SystemStatusPage } from "../pages/SystemStatusPage";
 import { UsersPage } from "../pages/UsersPage";
 import { UserDetailPage } from "../pages/UserDetailPage";
@@ -218,6 +219,14 @@ function AdminRoutes({
                 element={
                   <RequirePermission permission="MODERATION_MANAGE">
                     <ReportsPage />
+                  </RequirePermission>
+                }
+              />
+              <Route
+                path="note-ratings"
+                element={
+                  <RequirePermission permission="MODERATION_MANAGE">
+                    <NoteRatingsPage />
                   </RequirePermission>
                 }
               />
