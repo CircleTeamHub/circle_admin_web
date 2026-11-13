@@ -1,8 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { message } from "antd";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { beforeEach, expect, it, vi } from "vitest";
 import { NoteRatingsPage } from "./NoteRatingsPage";
 import { AdminAccessContext } from "../auth/admin-access";
 import { ApiError } from "../api/client";
@@ -78,15 +77,6 @@ function renderPage(path = "/note-ratings") {
 
 beforeEach(() => {
   vi.clearAllMocks();
-});
-
-// The resolve tests pop antd's static message; its close timer must not fire after
-// jsdom is torn down ("window is not defined" in whichever file runs next).
-afterEach(async () => {
-  cleanup();
-  await act(async () => {
-    message.destroy();
-  });
 });
 
 it("lists pending cases and shows who rated whom, when, as evidence", async () => {
