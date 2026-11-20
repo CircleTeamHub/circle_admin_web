@@ -101,3 +101,22 @@ it("requires a daily quantity and limits selection to 30 units",async()=>{
  expect(grantMembership).not.toHaveBeenCalled();
  expect(membershipGrantPlanLabel({planId:"daily",newLevel:1,quantity:30})).toBe("每日会员（30天白银权益）");
 });
+it("shows the search term it was opened with, so the filtered list is not mistaken for the whole list", async () => {
+  render(
+    <QueryClientProvider
+      client={
+        new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      }
+    >
+      <MemoryRouter initialEntries={["/memberships?search=ming"]}>
+        <MembershipsPage />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+  await waitFor(() =>
+    expect(listMembers).toHaveBeenCalledWith(
+      expect.objectContaining({ search: "ming" }),
+    ),
+  );
+  expect(screen.getByPlaceholderText("账号或昵称")).toHaveValue("ming");
+});

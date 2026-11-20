@@ -260,7 +260,7 @@ export function UserDetailPage({ currentUser }: { currentUser: AuthUser }) {
           </Space>
         </Card>
 
-        <Card title="安全与同步">
+        <Card title="账号安全">
           <Descriptions column={1} size="small">
             <Descriptions.Item label="安全码锁定">
               {data.security.securityCodeLocked ? "是" : "否"}

@@ -18,3 +18,7 @@ it("converts persisted UTC filter times into local date inputs", () => {
   expect(new Date(local).getTime()).toBe(date.getTime());
   expect(localDateTimeInput("bad")).toBeUndefined();
 });
+it("names the entity type the backend still writes for standalone-group operations", () => {
+  expect(auditEntityLabel("OpenIMGroup")).toBe("独立群聊");
+  expect(auditEntityLabel("SomethingNew")).toBe("其他对象");
+});

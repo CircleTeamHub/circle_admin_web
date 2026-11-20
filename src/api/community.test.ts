@@ -50,7 +50,7 @@ describe("Admin community API", () => {
     );
   });
 
-  it("lists OpenIM groups", async () => {
+  it("lists groups", async () => {
     await listAdminGroups({ page: 1, limit: 20, search: "group-1" });
 
     expect(mockedApiClient).toHaveBeenCalledWith(

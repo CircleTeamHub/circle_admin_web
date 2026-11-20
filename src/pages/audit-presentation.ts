@@ -65,6 +65,7 @@ export const AUDIT_ENTITY_LABEL: Record<string, string> = {
   Circle: "圈子",
   circle: "圈子",
   ChatConversation: "聊天会话",
+  OpenIMGroup: "独立群聊",
   NotificationPushOutbox: "通知推送任务",
   support_recharge_payment_code: "充值收款码",
   notification_push: "通知推送任务",

@@ -86,7 +86,7 @@ export function ReleasesPage() {
           editing?.kind === "release"
             ? "/admin/console/releases"
             : editing?.plan
-              ? `/admin/console/release-plans/${editing.plan.id}`
+              ? `/admin/console/release-plans/${encodeURIComponent(editing.plan.id)}`
               : "/admin/console/release-plans",
         method = editing?.plan ? "PATCH" : "POST";
       const fingerprint = JSON.stringify({ path, values, method });
@@ -200,7 +200,7 @@ export function ReleasesPage() {
                       !r.withdrawnAt ? (
                         <ReasonAction
                           title="撤回版本"
-                          path={`/admin/console/releases/${r.id}/withdraw`}
+                          path={`/admin/console/releases/${encodeURIComponent(r.id)}/withdraw`}
                           payload={{}}
                           danger
                           confirmText={r.version}
@@ -258,7 +258,7 @@ export function ReleasesPage() {
                         <Button onClick={() => edit("plan", p)}>编辑</Button>
                         <ReasonAction
                           title={p.enabled ? "停用" : "启用"}
-                          path={`/admin/console/release-plans/${p.id}`}
+                          path={`/admin/console/release-plans/${encodeURIComponent(p.id)}`}
                           method="PATCH"
                           payload={{ ...planBody(p), enabled: !p.enabled }}
                         />
@@ -381,7 +381,12 @@ export function ReleasesPage() {
         title={editing?.kind === "release" ? "登记官方版本" : "配置更新计划"}
         open={!!editing}
         onCancel={() => !save.isPending && setEditing(null)}
-        onOk={() => save.mutate()}
+        onOk={() =>
+          void form.validateFields().then(
+            () => save.mutate(),
+            () => undefined,
+          )
+        }
         confirmLoading={save.isPending}
         cancelButtonProps={{ disabled: save.isPending }}
         destroyOnHidden
@@ -517,7 +522,7 @@ export function ReleasesPage() {
             <Input.TextArea />
           </Form.Item>
         </Form>
-        {save.isError && <PageError error={save.error} />}
+        {save.isError && <PageError error={save.error} message="保存失败" />}
       </Modal>
     </Space>
   );
