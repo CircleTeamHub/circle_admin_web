@@ -24,7 +24,6 @@ export interface UserListParams {
 
 type BackendUserListResponse = {
   items?: AdminUserListItem[];
-  data?: AdminUserListItem[];
   total?: number;
   page?: number;
   limit?: number;
@@ -47,7 +46,7 @@ export function normalizeUserListResponse(
   response: BackendUserListResponse,
 ): PageResult<AdminUserListItem> {
   return {
-    items: response.items ?? response.data ?? [],
+    items: response.items ?? [],
     total: response.total ?? 0,
     page: response.page ?? 1,
     limit: response.limit ?? 20,
@@ -64,7 +63,7 @@ export async function listUsers(
 }
 
 export function getUserDetail(id: string): Promise<AdminUserDetail> {
-  return apiClient<AdminUserDetail>(`/admin/users/${id}`);
+  return apiClient<AdminUserDetail>(`/admin/users/${encodeURIComponent(id)}`);
 }
 
 export function revealSensitiveField(
@@ -72,7 +71,7 @@ export function revealSensitiveField(
   payload: { field: SensitiveField; reason: string },
 ): Promise<SensitiveAccessResponse> {
   return apiClient<SensitiveAccessResponse>(
-    `/admin/users/${id}/sensitive-access`,
+    `/admin/users/${encodeURIComponent(id)}/sensitive-access`,
     {
       method: "POST",
       body: JSON.stringify(payload),
@@ -84,7 +83,7 @@ export function updateUserStatus(
   id: string,
   payload: AdminUpdateUserStatusPayload,
 ): Promise<AdminUserStatusSummary> {
-  return apiClient<AdminUserStatusSummary>(`/admin/users/${id}/status`, {
+  return apiClient<AdminUserStatusSummary>(`/admin/users/${encodeURIComponent(id)}/status`, {
     method: "PATCH",
     body: JSON.stringify(payload),
   });
@@ -95,6 +94,6 @@ export function listUserAuditLogs(
   limit = 20,
 ): Promise<AdminAuditLog[]> {
   return apiClient<AdminAuditLog[]>(
-    `/admin/users/${id}/audit-logs?limit=${limit}`,
+    `/admin/users/${encodeURIComponent(id)}/audit-logs?limit=${limit}`,
   );
 }

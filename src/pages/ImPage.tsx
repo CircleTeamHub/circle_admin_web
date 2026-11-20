@@ -84,11 +84,12 @@ function History({
     document.addEventListener("visibilitychange", hide);
     const timer = window.setInterval(
       () =>
-        setRows((items) =>
-          items.filter(
+        setRows((items) => {
+          const visible = items.filter(
             (m) => !m.visibleUntil || Date.parse(m.visibleUntil) > Date.now(),
-          ),
-        ),
+          );
+          return visible.length === items.length ? items : visible;
+        }),
       1000,
     );
     return () => {
@@ -133,7 +134,7 @@ function History({
         type="warning"
         showIcon
         message={includeArchives
-          ? "每次查询需填写原因并记录审计。此账号可同时查看仍在180天留存期内的焚毁记录；加密文字需在已授权设备上解锁。"
+          ? "每次查询需填写原因并记录审计。此账号可同时查看仍在180天留存期内的焚毁记录。"
           : "每次查询需填写原因并记录审计。已撤回、删除、清空及到期焚毁内容不可查看；阅后即焚消息到期后需重新查询。"}
       />
       <Space wrap style={{ margin: "16px 0" }}>
@@ -444,7 +445,7 @@ function ImPageContent() {
         ]}
       />
       <Typography.Paragraph type="secondary" className="im-conversations-note">
-        仅支持当前聊天系统保存的记录。加密文字需在已授权设备上解锁后查看。
+        仅支持当前聊天系统保存的记录。
       </Typography.Paragraph>
       </Card>
       {selected && selected.type === type && (

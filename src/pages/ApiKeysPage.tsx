@@ -117,7 +117,7 @@ export function ApiKeysPage() {
                   <ReasonAction
                     title="撤销"
                     danger
-                    path={`/admin/console/keys/${r.id}/revoke`}
+                    path={`/admin/console/keys/${encodeURIComponent(r.id)}/revoke`}
                     payload={{}}
                   />
                 ) : (

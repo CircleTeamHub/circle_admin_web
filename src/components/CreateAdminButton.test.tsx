@@ -17,7 +17,7 @@ it("creates an administrator with the entered identity and selected default role
  const {dialog,created}=show();fill(dialog);await dialog.findByText("该账号可以使用");
  fireEvent.click(dialog.getByRole("button",{name:"创建账号"}));
  await waitFor(()=>expect(created).toHaveBeenCalledOnce());
- expect(apiClient).toHaveBeenCalledWith("/admin/access/accounts",{method:"POST",retryOnUnauthorized:false,body:JSON.stringify({nickname:"客服小张",accountId:"support_01",password:"InitialPass1234",role:"OPERATIONS"})});
+ expect(apiClient).toHaveBeenCalledWith("/admin/access/accounts",{method:"POST",body:JSON.stringify({nickname:"客服小张",accountId:"support_01",password:"InitialPass1234",role:"OPERATIONS"})});
 });
 it("rejects weak initial passwords without sending a request",async()=>{
  const {dialog}=show();fill(dialog,"short");await dialog.findByText("该账号可以使用");fireEvent.click(dialog.getByRole("button",{name:"创建账号"}));

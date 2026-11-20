@@ -46,9 +46,8 @@ export function reviewReport(
   note?: string,
 ) {
   if (kind === "friend") return reviewFriendReport(id, decision, note);
-  return apiClient(`/admin/moderation/${kind}-reports/${id}/review`, {
+  return apiClient(`/admin/moderation/${kind}-reports/${encodeURIComponent(id)}/review`, {
     method: "POST",
-    retryOnUnauthorized: false,
     body: JSON.stringify({ approve: decision === "APPROVE", note }),
   });
 }
@@ -62,16 +61,15 @@ export function listPosts(
   );
 }
 export function getPost(id: string): Promise<ContentPost> {
-  return apiClient(`/admin/content/posts/${id}`);
+  return apiClient(`/admin/content/posts/${encodeURIComponent(id)}`);
 }
 export function moderatePost(
   id: string,
   action: "takedown" | "restore",
   note?: string,
 ) {
-  return apiClient(`/admin/moderation/posts/${id}/${action}`, {
+  return apiClient(`/admin/moderation/posts/${encodeURIComponent(id)}/${action}`, {
     method: "POST",
-    retryOnUnauthorized: false,
     body: JSON.stringify(action === "takedown" ? { note } : {}),
   });
 }
@@ -92,7 +90,6 @@ export function mutateWords(
 ): Promise<{ added?: number; removed?: number; requested?: number }> {
   return apiClient(`/admin/sensitive-words/${action}`, {
     method: "POST",
-    retryOnUnauthorized: false,
     body: JSON.stringify({ words }),
   });
 }
@@ -104,7 +101,6 @@ export function publishAnnouncement(
 ): Promise<{ createdCount: number }> {
   return apiClient("/admin/system-announcements", {
     method: "POST",
-    retryOnUnauthorized: false,
     headers: { "Idempotency-Key": key },
     body: JSON.stringify({ title, content, scrolling }),
   });
@@ -117,12 +113,12 @@ export function listAnnouncements(): Promise<{ items: AdminAnnouncement[] }> {
   return apiClient('/admin/system-announcements');
 }
 export function setAnnouncementScrolling(id: string, scrolling: boolean) {
-  return apiClient(`/admin/system-announcements/${encodeURIComponent(id)}/scrolling`, { method: 'PATCH', retryOnUnauthorized: false, body: JSON.stringify({scrolling}) });
+  return apiClient(`/admin/system-announcements/${encodeURIComponent(id)}/scrolling`, { method: 'PATCH', body: JSON.stringify({scrolling}) });
 }
 
 export function editAnnouncement(id: string, values: { title: string; content: string }) {
-  return apiClient(`/admin/system-announcements/${encodeURIComponent(id)}`, {method:'PATCH',retryOnUnauthorized:false,body:JSON.stringify(values)});
+  return apiClient(`/admin/system-announcements/${encodeURIComponent(id)}`, {method:'PATCH',body:JSON.stringify(values)});
 }
 export function deleteAnnouncement(id: string) {
-  return apiClient(`/admin/system-announcements/${encodeURIComponent(id)}`, {method:'DELETE',retryOnUnauthorized:false});
+  return apiClient(`/admin/system-announcements/${encodeURIComponent(id)}`, {method:'DELETE'});
 }

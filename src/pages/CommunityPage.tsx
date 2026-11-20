@@ -50,7 +50,7 @@ const CIRCLE_STATE: Record<CircleAdminState, { label: string; color: string }> =
     DISABLING: { label: "停用同步中", color: "processing" },
     DISABLED: { label: "已停用/禁言", color: "orange" },
     RESTORING: { label: "恢复同步中", color: "processing" },
-    SYNC_FAILED: { label: "OpenIM 同步失败", color: "red" },
+    SYNC_FAILED: { label: "群聊同步失败", color: "red" },
     DISMISSED: { label: "群聊已永久解散", color: "red" },
   };
 
@@ -132,7 +132,7 @@ export function CommunityPage() {
       message.success(
         !action.target.groupID
           ? "圈子状态已更新"
-          : "管理操作已提交，正在同步 OpenIM",
+          : "管理操作已提交，正在同步群聊状态",
       );
       setPendingAction(null);
       setReason("");

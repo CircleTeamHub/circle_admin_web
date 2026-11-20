@@ -126,7 +126,7 @@ describe("UserDetailPage", () => {
     expect((await screen.findAllByText("jim-1001")).length).toBeGreaterThan(0);
     expect(screen.getByText("账户资料")).toBeInTheDocument();
     expect(screen.getByText("联系信息")).toBeInTheDocument();
-    expect(screen.getByText("安全与同步")).toBeInTheDocument();
+    expect(screen.getByText("账号安全")).toBeInTheDocument();
     expect(screen.getByText("业务概览")).toBeInTheDocument();
     expect(screen.getByText("88")).toBeInTheDocument();
     expect(screen.getByText("120")).toBeInTheDocument();

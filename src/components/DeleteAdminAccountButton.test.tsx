@@ -10,7 +10,7 @@ function show(ownAccount=false){const onDeleted=vi.fn();render(<QueryClientProvi
 it('requires a reason and submits the selected account version before refreshing the list',async()=>{
  vi.mocked(apiClient).mockResolvedValue({deleted:true});const done=show();fireEvent.click(screen.getByRole('button',{name:/删\s*除/}));const dialog=within(screen.getByRole('dialog'));
  fireEvent.change(dialog.getByLabelText('删除原因'),{target:{value:'管理员离职'}});fireEvent.click(dialog.getByRole('button',{name:'确认删除'}));await waitFor(()=>expect(done).toHaveBeenCalledOnce());
- expect(apiClient).toHaveBeenCalledWith('/admin/access/accounts/target',{method:'DELETE',retryOnUnauthorized:false,body:JSON.stringify({version:3,reason:'管理员离职'})});
+ expect(apiClient).toHaveBeenCalledWith('/admin/access/accounts/target',{method:'DELETE',body:JSON.stringify({version:3,reason:'管理员离职'})});
 });
 it('disables deletion of the current administrator',()=>{show(true);expect(screen.getByRole('button',{name:/删\s*除/})).toBeDisabled();});
 it('shows backend protection errors without removing the row',async()=>{

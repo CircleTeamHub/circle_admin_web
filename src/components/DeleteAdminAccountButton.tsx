@@ -9,7 +9,7 @@ export function DeleteAdminAccountButton({account,ownAccount,onDeleted}:{account
  const [open,setOpen]=useState(false);const [form]=Form.useForm();const epoch=useRef(0);
  const mutation=useMutation({mutationFn:({reason}:{reason:string})=>{
   if(getSessionEpoch()!==epoch.current)throw new Error('登录状态已变化，请重新登录');
-  return apiClient(`/admin/access/accounts/${account.id}`,{method:'DELETE',retryOnUnauthorized:false,body:JSON.stringify({version:account.version,reason:reason.trim()})});
+  return apiClient(`/admin/access/accounts/${encodeURIComponent(account.id)}`,{method:'DELETE',body:JSON.stringify({version:account.version,reason:reason.trim()})});
  },onSuccess:()=>{if(getSessionEpoch()!==epoch.current)return;form.resetFields();setOpen(false);onDeleted();}});
  return <><Button danger disabled={ownAccount} onClick={()=>{epoch.current=getSessionEpoch();mutation.reset();form.resetFields();setOpen(true);}}>删除</Button>
  <Modal title={`删除管理员：${account.nickname || account.accountId}`} open={open} okText="确认删除" cancelText="取消" okButtonProps={{danger:true}} confirmLoading={mutation.isPending} onOk={()=>{if(!mutation.isPending)form.submit();}} onCancel={()=>{if(!mutation.isPending){form.resetFields();setOpen(false);}}}>

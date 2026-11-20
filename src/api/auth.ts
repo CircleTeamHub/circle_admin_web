@@ -33,5 +33,5 @@ export function logout(refreshToken: string): Promise<void> {
 }
 
 export function updateAdminNickname(nickname: string): Promise<{id:string;nickname:string}> {
-  return apiClient('/admin/access/me/nickname',{method:'PATCH',retryOnUnauthorized:false,body:JSON.stringify({nickname})});
+  return apiClient('/admin/access/me/nickname',{method:'PATCH',body:JSON.stringify({nickname})});
 }

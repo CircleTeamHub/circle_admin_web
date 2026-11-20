@@ -76,7 +76,7 @@ export function AdminAccessPage() {
         setError(undefined);
         try {
           await platformWrite(
-            `/admin/access/accounts/${target.id}`,
+            `/admin/access/accounts/${encodeURIComponent(target.id)}`,
             "PATCH",
             {
               ...values,

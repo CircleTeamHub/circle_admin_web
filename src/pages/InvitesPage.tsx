@@ -162,6 +162,7 @@ export function InvitesPage({ embedded = false }: { embedded?: boolean }) {
           setTab(value);
           setPage(1);
           setSearch("");
+          setStatus(undefined);
         }}
         items={[
           { key: "personal", label: "个人邀请码" },

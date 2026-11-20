@@ -76,7 +76,6 @@ export const moderateImMember = (
     `/admin/im/conversations/${encodeURIComponent(id)}/members/${encodeURIComponent(target)}/actions`,
     {
       method: "POST",
-      retryOnUnauthorized: false,
       body: JSON.stringify({ action, reason, role, confirmed: true }),
     },
   );

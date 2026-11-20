@@ -62,6 +62,5 @@ function write(path: string, method: string, body: unknown) {
   return apiClient<unknown>(path, {
     method,
     body: JSON.stringify(body),
-    retryOnUnauthorized: false,
   });
 }

@@ -94,6 +94,8 @@ export function MembershipsPage({ embedded = false }: { embedded?: boolean }) {
       <Space wrap className="page-toolbar">
         <Input.Search
           placeholder="账号或昵称"
+          defaultValue={search}
+          allowClear
           maxLength={64}
           onSearch={(v) => {
             setSearch(v);
