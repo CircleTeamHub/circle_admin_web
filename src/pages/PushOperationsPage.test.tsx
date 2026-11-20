@@ -6,9 +6,7 @@ import { PushOperationsPage } from "./PushOperationsPage";
 import { consoleApi, consoleWrite } from "../api/console";
 vi.mock("../api/console", () => ({
   consoleApi: {
-    pushOverview: vi.fn(),
     pushes: vi.fn(),
-    announcements: vi.fn(),
     devices: vi.fn(),
   },
   consoleWrite: vi.fn(),
@@ -139,8 +137,6 @@ it("only shows delivery records and diagnostics even for content administrators"
   expect(screen.queryByText("给指定用户发送公告")).not.toBeInTheDocument();
   expect(screen.queryByText("手机通知设置")).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "暂停推送" })).not.toBeInTheDocument();
-  expect(consoleApi.announcements).not.toHaveBeenCalled();
-  expect(consoleApi.pushOverview).not.toHaveBeenCalled();
 });
 
 it("clears the targeted task and all filters from the toolbar", async () => {

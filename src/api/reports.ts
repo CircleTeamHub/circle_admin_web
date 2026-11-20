@@ -50,7 +50,7 @@ export function reviewFriendReport(
   decision: ReviewDecision,
   note?: string,
 ): Promise<FriendReport> {
-  return apiClient<BackendFriendReport>(`/admin/friend-reports/${reportId}/review`, {
+  return apiClient<BackendFriendReport>(`/admin/friend-reports/${encodeURIComponent(reportId)}/review`, {
     method: "POST",
     body: JSON.stringify({ decision, note }),
   }).then(normalizeFriendReport);

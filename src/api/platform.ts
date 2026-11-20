@@ -109,23 +109,3 @@ export function getPlatformAccess() {
 export function personLabel(person: Person) {
   return `${person.accountId}${person.nickname ? ` (${person.nickname})` : ""}`;
 }
-export function publicHttps(value: string): boolean {
-  if (typeof value !== "string" || value.length > 2048) return false;
-  try {
-    const url = new URL(value);
-    const host = url.hostname.toLowerCase().replace(/\.$/, "");
-    return (
-      url.protocol === "https:" &&
-      !url.username &&
-      !url.password &&
-      (!url.port || url.port === "443") &&
-      /^[a-z0-9-]+(?:\.[a-z0-9-]+)+$/.test(host) &&
-      !/^[\d.]+$/.test(host) &&
-      !/(?:^|\.)(?:localhost|local|internal|lan|home|test|invalid|example)$/.test(
-        host,
-      )
-    );
-  } catch {
-    return false;
-  }
-}

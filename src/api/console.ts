@@ -124,13 +124,6 @@ export const consoleApi = {
     }>("/admin/console/tasks/overview"),
   pushes: (q: URLSearchParams) =>
     apiClient<Page<Push>>(`/admin/console/push?${q}`),
-  pushOverview: () =>
-    apiClient<{
-      settings: { enabled: boolean; version: number };
-      counts: Array<{ status: string; _count: number }>;
-      providers: Array<{ name: string; configured: boolean }>;
-      receiptMeaning: string;
-    }>("/admin/console/push/overview"),
   devices: (id: string) =>
     apiClient<{
       items: Array<{
@@ -142,10 +135,6 @@ export const consoleApi = {
         updatedAt: string;
       }>;
     }>(`/admin/console/push/devices/${encodeURIComponent(id)}`),
-  announcements: () =>
-    apiClient<{
-      items: Array<{ id: string; content: string; createdAt: string }>;
-    }>("/admin/console/push/announcements"),
   timeline: (id: string, q: URLSearchParams) =>
     apiClient<
       Page<Event> & {
