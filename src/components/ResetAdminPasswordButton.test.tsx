@@ -17,7 +17,7 @@ function show(ownAccount=false){
 it('resets a selected administrator password without ending the super administrator session',async()=>{
  vi.mocked(apiClient).mockResolvedValue({changed:true});const dialog=show();fireEvent.click(dialog.getByRole('button',{name:'确认重置'}));
  await waitFor(()=>expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
- expect(apiClient).toHaveBeenCalledWith('/admin/access/accounts/target/password',{method:'PATCH',retryOnUnauthorized:false,body:JSON.stringify({newPassword:'NewPassword5678',reason:'管理员申请重置'})});expect(clearSession).not.toHaveBeenCalled();
+ expect(apiClient).toHaveBeenCalledWith('/admin/access/accounts/target/password',{method:'PATCH',body:JSON.stringify({newPassword:'NewPassword5678',reason:'管理员申请重置'})});expect(clearSession).not.toHaveBeenCalled();
 });
 it('returns to login after resetting the current super administrator password',async()=>{
  vi.mocked(apiClient).mockResolvedValue({changed:true});const dialog=show(true);fireEvent.click(dialog.getByRole('button',{name:'确认重置'}));await waitFor(()=>expect(clearSession).toHaveBeenCalledOnce());

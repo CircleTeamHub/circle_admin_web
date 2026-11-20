@@ -15,7 +15,7 @@ export function useAdminAccountAvailability(form:FormInstance,open:boolean,exclu
   setResult({accountId,status:"checking"});
   const timer=setTimeout(()=>{
    const query=new URLSearchParams({accountId});if(excludeUserId)query.set("excludeUserId",excludeUserId);
-   apiClient<{available:boolean}>(`/admin/access/accounts/availability?${query}`,{signal:controller.signal,cache:"no-store",retryOnUnauthorized:false}).then(response=>{
+   apiClient<{available:boolean}>(`/admin/access/accounts/availability?${query}`,{signal:controller.signal,cache:"no-store"}).then(response=>{
     if(active && getSessionEpoch()===epoch)setResult({accountId,status:response.available === true ? "available":"taken"});
    }).catch(()=>{if(active && getSessionEpoch()===epoch)setResult({accountId,status:"error"});});
   },350);

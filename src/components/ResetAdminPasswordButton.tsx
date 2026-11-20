@@ -9,7 +9,7 @@ export function ResetAdminPasswordButton({account,ownAccount}:{account:AdminAcco
  const [open,setOpen]=useState(false);const [form]=Form.useForm();const epoch=useRef(0);
  const mutation=useMutation({mutationFn:({newPassword,reason}:{newPassword:string;reason:string})=>{
   if(getSessionEpoch()!==epoch.current)throw new Error("登录状态已变化，请重新登录");
-  return apiClient(`/admin/access/accounts/${account.id}/password`,{method:"PATCH",retryOnUnauthorized:false,body:JSON.stringify({newPassword,reason:reason.trim()})});
+  return apiClient(`/admin/access/accounts/${encodeURIComponent(account.id)}/password`,{method:"PATCH",body:JSON.stringify({newPassword,reason:reason.trim()})});
  },onSuccess:()=>{form.resetFields();setOpen(false);if(ownAccount && getSessionEpoch()===epoch.current)clearSession();}});
  return <><Button onClick={()=>{epoch.current=getSessionEpoch();form.resetFields();mutation.reset();setOpen(true);}}>重置密码</Button>
  <Modal title={`重置管理员密码：${account.nickname || account.accountId}`} open={open} okText="确认重置" cancelText="取消" confirmLoading={mutation.isPending} onOk={()=>{if(!mutation.isPending)form.submit();}} onCancel={()=>{if(!mutation.isPending){form.resetFields();setOpen(false);}}}>

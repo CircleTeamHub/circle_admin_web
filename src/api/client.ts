@@ -26,6 +26,10 @@ interface ApiEnvelope<T> {
 
 interface ApiClientOptions extends RequestInit {
   auth?: boolean;
+  /**
+   * 默认 true:401 时先刷新令牌再重发一次。401 来自鉴权守卫,请求还没执行,
+   * 写操作重发也不会重复生效。只有刷新和登出这两个本身就在处理会话的请求关掉它。
+   */
   retryOnUnauthorized?: boolean;
 }
 

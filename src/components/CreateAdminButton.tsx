@@ -13,7 +13,7 @@ export function CreateAdminButton({onCreated}:{onCreated:()=>void}) {
  const availability=useAdminAccountAvailability(form,open);
  const mutation=useMutation({mutationFn:({values,sessionEpoch}:{values:NewAdminValues;sessionEpoch:number})=>{
   if(getSessionEpoch()!==sessionEpoch)throw new Error("登录状态已变化，请重试");
-  return apiClient('/admin/access/accounts',{method:'POST',retryOnUnauthorized:false,body:JSON.stringify(values)});
+  return apiClient('/admin/access/accounts',{method:'POST',body:JSON.stringify(values)});
  },onSuccess:(_,variables)=>{if(getSessionEpoch()!==variables.sessionEpoch)return;form.resetFields();setOpen(false);onCreated();message.success("管理员已创建，可使用设置的密码登录");},onError:(error,variables)=>{if(getSessionEpoch()===variables.sessionEpoch)message.error(getErrorMessage(error,"创建失败，请核对账号列表后重试"));}});
  return <>
   <Button type="primary" onClick={()=>{epoch.current=getSessionEpoch();form.resetFields();setOpen(true);}}>新增管理员</Button>
