@@ -17,6 +17,7 @@ import {
   Space,
   Table,
   Tabs,
+  Tag,
   Typography,
   message,
 } from "antd";
@@ -51,6 +52,20 @@ function ReportUser({ user, userID }: { user?: AdminUser | null; userID?: string
 }
 
 const PAGE_SIZE = 20;
+
+/** 被举报的群:圈子群显示圈子名,独立群聊显示群名(并标明),都没有才退回会话 id。 */
+function ReportedGroup({ report }: { report: ModerationReport }) {
+  if (report.circle?.name) return <>{report.circle.name}</>;
+  if (report.conversation?.name) {
+    return (
+      <Space size={4}>
+        <span>{report.conversation.name}</span>
+        <Tag>独立群聊</Tag>
+      </Space>
+    );
+  }
+  return <Identifier value={report.groupID} label="群聊" />;
+}
 
 export function ReportsPage() {
   const queryClient = useQueryClient();
@@ -122,11 +137,8 @@ export function ReportsPage() {
         ) : (
           row.postID ? (
             <Button type="link" size="small" onClick={() => setSelectedPost(row.postID)}>帖子详情</Button>
-          ) : row.circle?.name || (
-            <Identifier
-              value={row.groupID || row.postID}
-              label={row.groupID ? "群聊" : "帖子"}
-            />
+          ) : (
+            <ReportedGroup report={row} />
           )
         ),
     },
@@ -255,10 +267,11 @@ export function ReportsPage() {
               </Descriptions.Item>
               <Descriptions.Item label="被举报人">
                 {selected.targetUser && <ReportUser user={selected.targetUser} />}
-                {selected.groupID ||
-                  selected.postID ||
-                  selected.circle?.name ||
-                  ""}
+                {selected.groupID ? (
+                  <ReportedGroup report={selected} />
+                ) : (
+                  selected.postID || ""
+                )}
               </Descriptions.Item>
               <Descriptions.Item label="审核备注">
                 {selected.reviewNote || "-"}

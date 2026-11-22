@@ -89,3 +89,60 @@ it("offers the original video when browser playback fails", async () => {
   expect(original).toHaveAttribute("target", "_blank");
   expect(original).toHaveAttribute("rel", "noopener noreferrer");
 });
+
+function renderGroupReports() {
+  render(
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <MemoryRouter initialEntries={["/reports?kind=group"]}>
+        <AdminAccessContext.Provider value={{ role: "SUPER_ADMIN", permissions: ["MODERATION_MANAGE"], version: 1 }}>
+          <ReportsPage />
+        </AdminAccessContext.Provider>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
+it("names a reported standalone group chat instead of showing its conversation id", async () => {
+  vi.mocked(listReports).mockResolvedValue({
+    items: [{
+      id: "report-standalone",
+      groupID: "conv-standalone-id",
+      circle: null,
+      conversation: { id: "conv-standalone-id", name: "周末饭搭子" },
+      status: "PENDING",
+      createdAt: "2026-11-21T00:00:00Z",
+    }],
+    total: 1,
+    page: 1,
+    limit: 20,
+  });
+  renderGroupReports();
+
+  // 独立群聊(新建群聊建的群)不属于任何圈子:以前只能看到「群聊 + 会话 id」。
+  expect(await screen.findByText("周末饭搭子")).toBeInTheDocument();
+  expect(screen.getByText("独立群聊")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: /详\s*情/ }));
+  expect(screen.getAllByText("周末饭搭子")).toHaveLength(2);
+});
+
+it("shows the circle name for a circle group report in the detail drawer too", async () => {
+  vi.mocked(listReports).mockResolvedValue({
+    items: [{
+      id: "report-circle",
+      groupID: "circle-1",
+      circle: { id: "circle-1", name: "骑行圈" },
+      conversation: null,
+      status: "PENDING",
+      createdAt: "2026-11-21T00:00:00Z",
+    }],
+    total: 1,
+    page: 1,
+    limit: 20,
+  });
+  renderGroupReports();
+
+  expect(await screen.findByText("骑行圈")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: /详\s*情/ }));
+  // 详情以前先取 groupID,圈子群永远只显示一串 id,圈子名到不了。
+  expect(screen.getAllByText("骑行圈")).toHaveLength(2);
+});
