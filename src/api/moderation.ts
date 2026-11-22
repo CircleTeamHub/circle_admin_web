@@ -16,6 +16,8 @@ export interface ModerationReport extends FriendReport {
   reviewedByID?: string;
   reason?: string | null;
   circle?: { id: string; name: string } | null;
+  /** 独立群聊(新建群聊建的群,不属于任何圈子)的群会话;圈子群为 null,旧后端不返回。 */
+  conversation?: { id: string; name: string } | null;
 }
 export interface ContentPost {
   id: string;
